@@ -14,8 +14,8 @@ android {
         applicationId = "com.nextgen.player"
         minSdk = 24
         targetSdk = 35
-        versionCode = 4
-        versionName = "1.3.0"
+        versionCode = 5
+        versionName = "1.4.0"
     }
 
     buildTypes {
@@ -41,6 +41,15 @@ android {
     buildFeatures {
         compose = true
     }
+
+    packaging {
+        resources {
+            excludes += "META-INF/DEPENDENCIES"
+            excludes += "META-INF/LICENSE.md"
+            excludes += "META-INF/NOTICE.md"
+            excludes += "META-INF/versions/9/OSGI-INF/MANIFEST.MF"
+        }
+    }
 }
 
 dependencies {
@@ -50,6 +59,7 @@ dependencies {
     implementation(project(":data-local"))
     implementation(project(":feature-library"))
     implementation(project(":feature-subtitle"))
+    implementation(project(":feature-network"))
 
     // Core
     implementation(libs.androidx.core.ktx)

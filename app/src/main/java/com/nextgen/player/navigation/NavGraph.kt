@@ -8,6 +8,8 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.nextgen.player.library.ui.FolderScreen
 import com.nextgen.player.library.ui.LibraryScreen
+import com.nextgen.player.network.ui.NetworkScreen
+import com.nextgen.player.network.ui.ServerBrowserScreen
 import com.nextgen.player.ui.SettingsScreen
 import java.net.URLDecoder
 import java.net.URLEncoder
@@ -16,18 +18,30 @@ object Routes {
     const val LIBRARY = "library"
     const val FOLDER = "folder/{folderPath}/{folderName}"
     const val SETTINGS = "settings"
+    const val NETWORK = "network"
+    const val NETWORK_BROWSE_SERVER = "network/browse/{serverId}"
+    const val NETWORK_BROWSE_DLNA = "network/dlna/{location}/{name}"
 
     fun folderRoute(folderPath: String, folderName: String): String {
         val encodedPath = URLEncoder.encode(folderPath, "UTF-8")
         val encodedName = URLEncoder.encode(folderName, "UTF-8")
         return "folder/$encodedPath/$encodedName"
     }
+
+    fun networkBrowseServer(serverId: Long): String = "network/browse/$serverId"
+
+    fun networkBrowseDlna(location: String, name: String): String {
+        val encodedLocation = URLEncoder.encode(location, "UTF-8")
+        val encodedName = URLEncoder.encode(name, "UTF-8")
+        return "network/dlna/$encodedLocation/$encodedName"
+    }
 }
 
 @Composable
 fun NavGraph(
     onPlayMedia: (mediaId: Long, path: String) -> Unit,
-    onPlayMediaFromFolder: (mediaId: Long, path: String, folderPath: String) -> Unit = { id, path, _ -> onPlayMedia(id, path) }
+    onPlayMediaFromFolder: (mediaId: Long, path: String, folderPath: String) -> Unit = { id, path, _ -> onPlayMedia(id, path) },
+    onPlayUrl: (url: String) -> Unit = {}
 ) {
     val navController = rememberNavController()
 
@@ -46,6 +60,9 @@ fun NavGraph(
                 },
                 onSettingsClick = {
                     navController.navigate(Routes.SETTINGS)
+                },
+                onNetworkClick = {
+                    navController.navigate(Routes.NETWORK)
                 }
             )
         }
@@ -72,6 +89,48 @@ fun NavGraph(
         composable(Routes.SETTINGS) {
             SettingsScreen(
                 onBackClick = { navController.popBackStack() }
+            )
+        }
+
+        composable(Routes.NETWORK) {
+            NetworkScreen(
+                onBackClick = { navController.popBackStack() },
+                onBrowseServer = { serverId ->
+                    navController.navigate(Routes.networkBrowseServer(serverId))
+                },
+                onBrowseDlna = { location, name ->
+                    navController.navigate(Routes.networkBrowseDlna(location, name))
+                },
+                onPlayUrl = { url -> onPlayUrl(url) }
+            )
+        }
+
+        composable(
+            route = Routes.NETWORK_BROWSE_SERVER,
+            arguments = listOf(navArgument("serverId") { type = NavType.LongType })
+        ) { backStackEntry ->
+            val serverId = backStackEntry.arguments?.getLong("serverId") ?: -1L
+            ServerBrowserScreen(
+                serverId = serverId,
+                onBackClick = { navController.popBackStack() },
+                onPlayFile = { url -> onPlayUrl(url) }
+            )
+        }
+
+        composable(
+            route = Routes.NETWORK_BROWSE_DLNA,
+            arguments = listOf(
+                navArgument("location") { type = NavType.StringType },
+                navArgument("name") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val location = URLDecoder.decode(backStackEntry.arguments?.getString("location") ?: "", "UTF-8")
+            val name = URLDecoder.decode(backStackEntry.arguments?.getString("name") ?: "", "UTF-8")
+            ServerBrowserScreen(
+                dlnaLocation = location,
+                dlnaName = name,
+                onBackClick = { navController.popBackStack() },
+                onPlayFile = { url -> onPlayUrl(url) }
             )
         }
     }

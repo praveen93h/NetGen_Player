@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="network_title">Network</string>
+    <string name="network_tab_servers">Servers</string>
+    <string name="network_tab_stream">Stream</string>
+    <string name="network_tab_dlna">DLNA</string>
+
+    <string name="network_add_server">Add Server</string>
+    <string name="network_edit_server">Edit Server</string>
+    <string name="network_open_url">Open URL</string>
+    <string name="network_refresh">Refresh</string>
+
+    <string name="network_server_name">Server Name</string>
+    <string name="network_server_type">Type</string>
+    <string name="network_host">Host / IP Address</string>
+    <string name="network_port">Port</string>
+    <string name="network_path">Path</string>
+    <string name="network_username">Username</string>
+    <string name="network_password">Password</string>
+    <string name="network_domain">Domain / Workgroup</string>
+
+    <string name="network_url">URL</string>
+    <string name="network_url_hint">Enter a video URL (HTTP, HLS, DASH, RTSP)</string>
+
+    <string name="network_no_servers">No Servers</string>
+    <string name="network_no_servers_hint">Add a network server to browse media files</string>
+    <string name="network_no_urls">No Recent URLs</string>
+    <string name="network_no_urls_hint">Open a stream URL to start playing</string>
+    <string name="network_recent_urls">Recent URLs</string>
+    <string name="network_scanning">Scanning for DLNA devices…</string>
+    <string name="network_no_dlna">No DLNA Devices</string>
+    <string name="network_no_dlna_hint">Make sure you\'re on the same network as your media server</string>
+
+    <string name="network_connecting">Connecting…</string>
+    <string name="network_connection_error">Connection Failed</string>
+    <string name="network_empty_folder">This folder is empty</string>
+
+    <string name="action_back">Back</string>
+    <string name="action_save">Save</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="action_play">Play</string>
+    <string name="action_edit">Edit</string>
+    <string name="action_delete">Delete</string>
+    <string name="action_retry">Retry</string>
+</resources>

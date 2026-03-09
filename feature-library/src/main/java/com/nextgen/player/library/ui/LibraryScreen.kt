@@ -43,6 +43,7 @@ fun LibraryScreen(
     onMediaClick: (MediaEntity) -> Unit,
     onFolderClick: (String) -> Unit,
     onSettingsClick: () -> Unit = {},
+    onNetworkClick: () -> Unit = {},
     viewModel: LibraryViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -91,6 +92,9 @@ fun LibraryScreen(
                         }
                         IconButton(onClick = { viewModel.scanMedia() }) {
                             Icon(Icons.Rounded.Refresh, stringResource(R.string.library_refresh), tint = Color.White)
+                        }
+                        IconButton(onClick = onNetworkClick) {
+                            Icon(Icons.Rounded.Lan, "Network", tint = Color.White)
                         }
                         IconButton(onClick = onSettingsClick) {
                             Icon(Icons.Rounded.Settings, stringResource(R.string.library_settings), tint = Color.White)

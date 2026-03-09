@@ -61,6 +61,12 @@ class MainActivity : ComponentActivity() {
                                 putExtra(PlayerActivity.EXTRA_FOLDER_PATH, folderPath)
                             }
                             startActivity(intent)
+                        },
+                        onPlayUrl = { url ->
+                            val intent = Intent(this, PlayerActivity::class.java).apply {
+                                putExtra(PlayerActivity.EXTRA_MEDIA_PATH, url)
+                            }
+                            startActivity(intent)
                         }
                     )
                 } else {

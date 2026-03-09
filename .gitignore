@@ -18,6 +18,7 @@ local.properties
 /data-local/build
 /feature-library/build
 /feature-subtitle/build
+/feature-network/build
 
 # Implementation plans (local only)
 implementation_plan*.md

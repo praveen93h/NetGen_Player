@@ -16,6 +16,10 @@ coroutines = "1.9.0"
 appcompat = "1.7.0"
 material = "1.12.0"
 datastore = "1.1.1"
+smbj = "0.13.0"
+commonsNet = "3.11.1"
+jsch = "0.2.18"
+okhttp = "4.12.0"
 
 [libraries]
 # AndroidX Core
@@ -66,6 +70,12 @@ androidx-datastore-preferences = { group = "androidx.datastore", name = "datasto
 
 # Material
 google-material = { group = "com.google.android.material", name = "material", version.ref = "material" }
+
+# Network
+smbj = { group = "com.hierynomus", name = "smbj", version.ref = "smbj" }
+commons-net = { group = "commons-net", name = "commons-net", version.ref = "commonsNet" }
+jsch = { group = "com.github.mwiede", name = "jsch", version.ref = "jsch" }
+okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttp" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
