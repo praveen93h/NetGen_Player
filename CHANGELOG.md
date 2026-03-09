@@ -4,6 +4,33 @@ All notable changes to NextGen Media Player will be documented in this file.
 
 ---
 
+## [1.4.0] — 2026-03-09
+
+### Added
+- **SMB/CIFS Browsing** — Browse and play media from network shares (NAS, Windows) via smbj with SMB2/3 support
+- **FTP Browsing** — Connect to FTP servers with passive mode and binary transfer
+- **SFTP Browsing** — Secure file transfer via JSch SSH library
+- **WebDAV Browsing** — Browse WebDAV servers using OkHttp PROPFIND requests
+- **DLNA/UPnP Discovery** — Discover media servers on local network via SSDP multicast, browse ContentDirectory via SOAP
+- **URL Streaming** — Play HTTP, HTTPS, RTSP, HLS, and DASH streams directly by URL
+- **M3U/M3U8 Parser** — Parse playlist files with auto-detection of HLS/DASH streams
+- **Server Bookmarks** — Save, edit, and delete network server connections with Room DB persistence
+- **Recent URLs** — History of recently played stream URLs
+- **Custom ExoPlayer DataSources** — SMB and FTP DataSources with seeking support for direct network playback
+- **Network UI** — Three-tab interface (Servers / Stream / DLNA) with file browser, add/edit server dialog, and URL input dialog
+- **Network Button** — Quick access to network features from library top bar
+
+### Changed
+- Room database migrated to version 2 (added `server_bookmarks` table)
+- Navigation graph extended with network browsing routes
+- New `feature-network` module with full Hilt DI integration
+- Version bumped to 1.4.0 (versionCode 5)
+
+### Dependencies Added
+- smbj 0.13.0, Commons Net 3.11.1, JSch 0.2.18, OkHttp 4.12.0
+
+---
+
 ## [1.3.0] — 2026-03-07
 
 ### Added

@@ -4,7 +4,7 @@ A modern, ad-free, high-performance media player for Android — built with Kotl
 
 [![Platform](https://img.shields.io/badge/Platform-Android-green.svg)]()
 [![Min SDK](https://img.shields.io/badge/Min%20SDK-24-blue.svg)]()
-[![Version](https://img.shields.io/badge/Version-1.3.0-orange.svg)]()
+[![Version](https://img.shields.io/badge/Version-1.4.0-orange.svg)]()
 
 ---
 
@@ -65,6 +65,16 @@ A modern, ad-free, high-performance media player for Android — built with Kotl
 - Double-tap to skip forward/backward
 - Long-press for 2x speed
 
+### Network & Streaming
+- Browse **SMB/CIFS** network shares (NAS, Windows shares)
+- Browse **FTP** and **SFTP** servers
+- Browse **WebDAV** servers
+- **DLNA/UPnP** device discovery and content browsing
+- **URL streaming** — HTTP, HTTPS, RTSP, HLS, DASH
+- **M3U/M3U8** playlist parsing
+- Server bookmarks with connection management
+- Recent URL history
+
 ### Library
 - Browse by folders, recent files, favorites
 - Play All from folder
@@ -87,6 +97,7 @@ core-player/          → PlayerEngine, AudioEngine, EqualizerEngine, GestureCon
 core-ui/              → Theme, colors, typography, shared components
 data-local/           → Room database, DAOs, MediaScanner, repositories
 feature-library/      → Library browsing UI (folders, recent, search)
+feature-network/      → Network browsing (SMB/FTP/SFTP/WebDAV/DLNA), URL streaming
 feature-subtitle/     → Subtitle parsing (SRT/ASS/SSA), rendering, sync
 ```
 
@@ -103,6 +114,7 @@ feature-subtitle/     → Subtitle parsing (SRT/ASS/SSA), rendering, sync
 | Database | **Room** |
 | Preferences | **DataStore** |
 | Async | **Kotlin Coroutines** + **Flow** |
+| Networking | **smbj** (SMB), **Commons Net** (FTP), **JSch** (SFTP), **OkHttp** (WebDAV/HTTP) |
 | Build | **Gradle KTS** + **Version Catalog** |
 
 ---
@@ -147,6 +159,22 @@ MediaPlayer/
 │   └── src/main/java/.../library/
 │       ├── ui/ (LibraryScreen, FolderScreen, etc.)
 │       └── viewmodel/
+├── feature-network/              # Network streaming module
+│   └── src/main/java/.../network/
+│       ├── client/
+│       │   ├── SmbClient.kt           # SMB2/3 browsing via smbj
+│       │   ├── FtpClient.kt           # FTP browsing via Commons Net
+│       │   ├── SftpClient.kt          # SFTP browsing via JSch
+│       │   ├── WebDavClient.kt        # WebDAV via OkHttp PROPFIND
+│       │   └── DlnaClient.kt          # SSDP discovery + SOAP browsing
+│       ├── datasource/
+│       │   ├── SmbDataSource.kt       # ExoPlayer SMB DataSource
+│       │   └── FtpDataSource.kt       # ExoPlayer FTP DataSource
+│       ├── parser/M3uParser.kt        # M3U/M3U8 playlist parser
+│       ├── model/NetworkModels.kt
+│       ├── ui/ (NetworkScreen, ServerBrowserScreen, dialogs)
+│       ├── viewmodel/NetworkViewModel.kt
+│       └── di/NetworkModule.kt
 ├── feature-subtitle/             # Subtitle engine
 │   └── src/main/java/.../subtitle/
 │       ├── SubtitleParser.kt
@@ -186,7 +214,7 @@ APK output: `app/build/outputs/apk/debug/app-debug.apk`
 | v1.1 | ✅ Done | Background playback, audio sync, string resources |
 | v1.2 | ✅ Done | PiP, resume playback, rotation lock, night filter, screen lock, queue |
 | v1.3 | ✅ Done | Equalizer, video filters, shuffle/repeat, skip silence |
-| v1.4 | Planned | Network streaming (SMB/FTP/SFTP), URL playback, DLNA, Chromecast |
+| v1.4 | ✅ Done | Network streaming (SMB/FTP/SFTP/WebDAV), URL playback, DLNA/UPnP |
 | v1.5 | Planned | Material You, custom gestures, floating video, favorites, watch history |
 | v1.6 | Planned | Online subtitle download, subtitle customization, dual subtitles |
 | v1.7 | Planned | FFmpeg fallback, HDR/Dolby Vision, decoder reporting |
