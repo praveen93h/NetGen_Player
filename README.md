@@ -4,7 +4,7 @@ A modern, ad-free, high-performance media player for Android — built with Kotl
 
 [![Platform](https://img.shields.io/badge/Platform-Android-green.svg)]()
 [![Min SDK](https://img.shields.io/badge/Min%20SDK-24-blue.svg)]()
-[![Version](https://img.shields.io/badge/Version-1.4.0-orange.svg)]()
+[![Version](https://img.shields.io/badge/Version-1.5.0-orange.svg)]()
 
 ---
 
