@@ -4,7 +4,7 @@ A modern, ad-free, high-performance media player for Android — built with Kotl
 
 [![Platform](https://img.shields.io/badge/Platform-Android-green.svg)]()
 [![Min SDK](https://img.shields.io/badge/Min%20SDK-24-blue.svg)]()
-[![Version](https://img.shields.io/badge/Version-1.4.0-orange.svg)]()
+[![Version](https://img.shields.io/badge/Version-1.5.0-orange.svg)]()
 
 ---
 
@@ -59,10 +59,10 @@ A modern, ad-free, high-performance media player for Android — built with Kotl
 - Styled rendering with color, outline, shadow
 
 ### Gestures
-- Swipe for brightness & volume control
+- Swipe for brightness & volume control (individually toggleable)
 - Horizontal swipe to seek
 - Pinch to zoom
-- Double-tap to skip forward/backward
+- Double-tap to skip forward/backward (configurable: 5/10/15/20/30s)
 - Long-press for 2x speed
 
 ### Network & Streaming
@@ -77,9 +77,21 @@ A modern, ad-free, high-performance media player for Android — built with Kotl
 
 ### Library
 - Browse by folders, recent files, favorites
+- **Continue Watching** section with progress indicators
+- **Favorites** — tap heart icon on any media card
+- **Batch operations** — long-press to select, select all, batch delete
 - Play All from folder
 - Playback queue with shuffle & repeat modes (Off / All / One)
 - Auto-play next video in folder
+
+### Appearance
+- **Material You / Dynamic Color** (Android 12+)
+- 5 theme modes: Dark, Pure Black (AMOLED), Midnight Blue, Light, System
+- Accent color picker with 12 preset colors
+
+### Floating Video
+- Pop-up overlay mini-player (Picture-outside-Picture)
+- Draggable window with play/pause & close controls
 
 ### Privacy
 - 100% ad-free, no trackers, no analytics
@@ -134,7 +146,9 @@ MediaPlayer/
 │       │   │   ├── SettingsScreen.kt  # App settings
 │       │   │   └── SettingsViewModel.kt
 │       │   ├── navigation/NavGraph.kt
-│       │   ├── service/PlaybackService.kt
+│       │   ├── service/
+│       │   │   ├── PlaybackService.kt
+│       │   │   └── FloatingVideoService.kt  # Overlay mini-player
 │       │   └── di/AppModule.kt
 │       └── res/
 ├── core-player/                  # Playback engine module
@@ -215,7 +229,7 @@ APK output: `app/build/outputs/apk/debug/app-debug.apk`
 | v1.2 | ✅ Done | PiP, resume playback, rotation lock, night filter, screen lock, queue |
 | v1.3 | ✅ Done | Equalizer, video filters, shuffle/repeat, skip silence |
 | v1.4 | ✅ Done | Network streaming (SMB/FTP/SFTP/WebDAV), URL playback, DLNA/UPnP |
-| v1.5 | Planned | Material You, custom gestures, floating video, favorites, watch history |
+| v1.5 | ✅ Done | Material You, custom gestures, floating video, favorites, batch operations |
 | v1.6 | Planned | Online subtitle download, subtitle customization, dual subtitles |
 | v1.7 | Planned | FFmpeg fallback, HDR/Dolby Vision, decoder reporting |
 | v1.8 | Planned | Smart auto-brightness, video bookmarks, frame-by-frame, audio-only mode |
