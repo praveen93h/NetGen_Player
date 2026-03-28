@@ -24,10 +24,12 @@ class WebDavClient {
             .connectTimeout(15, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
         if (config.username.isNotEmpty()) {
-            builder.authenticator { _, response ->
-                response.request.newBuilder()
-                    .header("Authorization", Credentials.basic(config.username, config.password))
+            val credential = Credentials.basic(config.username, config.password)
+            builder.addInterceptor { chain ->
+                val request = chain.request().newBuilder()
+                    .header("Authorization", credential)
                     .build()
+                chain.proceed(request)
             }
         }
         client = builder.build()

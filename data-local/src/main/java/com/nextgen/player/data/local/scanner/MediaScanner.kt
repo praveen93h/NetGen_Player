@@ -64,8 +64,8 @@ class MediaScanner @Inject constructor(
             projection.add(MediaStore.Video.Media.RELATIVE_PATH)
         }
 
-        val selection = MediaStore.Video.Media.DURATION + " > ?"
-        val selectionArgs = arrayOf("0")
+        val selection = "${MediaStore.Video.Media.DURATION} > ? AND ${MediaStore.Video.Media.MIME_TYPE} IN (${SUPPORTED_MIME_TYPES.joinToString(",") { "?" }})"
+        val selectionArgs = arrayOf("0") + SUPPORTED_MIME_TYPES.toTypedArray()
         val sortOrder = "${MediaStore.Video.Media.DATE_ADDED} DESC"
 
         context.contentResolver.query(
@@ -92,16 +92,21 @@ class MediaScanner @Inject constructor(
 
             while (cursor.moveToNext()) {
                 val id = cursor.getLong(idColumn)
-                val path = cursor.getString(pathColumn) ?: continue
+                val dataPath = cursor.getString(pathColumn)
+                val displayName = cursor.getString(displayNameColumn) ?: "unknown"
                 val mimeType = cursor.getString(mimeTypeColumn) ?: "video/mp4"
 
+                // On scoped storage, DATA may be empty; construct path from RELATIVE_PATH + DISPLAY_NAME
+                val path: String
                 val folderPath: String
                 val folderName: String
                 if (hasRelativePath && relativePathColumn >= 0) {
                     val relativePath = cursor.getString(relativePathColumn) ?: ""
                     folderPath = relativePath.trimEnd('/')
                     folderName = folderPath.substringAfterLast('/').ifEmpty { folderPath }
+                    path = dataPath ?: "/storage/emulated/0/$relativePath$displayName"
                 } else {
+                    path = dataPath ?: continue
                     val file = File(path)
                     folderPath = file.parent ?: ""
                     folderName = file.parentFile?.name ?: ""
@@ -117,7 +122,7 @@ class MediaScanner @Inject constructor(
                         id = id,
                         path = path,
                         title = cursor.getString(titleColumn) ?: File(path).nameWithoutExtension,
-                        displayName = cursor.getString(displayNameColumn) ?: File(path).name,
+                        displayName = displayName,
                         mimeType = mimeType,
                         duration = cursor.getLong(durationColumn),
                         size = cursor.getLong(sizeColumn),

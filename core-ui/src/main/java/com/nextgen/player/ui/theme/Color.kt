@@ -31,3 +31,14 @@ val PlayerSeekBarBuffered = Color(0x44FFFFFF)
 val SuccessGreen = Color(0xFF4CAF50)
 val ErrorRed = Color(0xFFF44336)
 val WarningYellow = Color(0xFFFFCA28)
+
+// Pure Black AMOLED theme
+val PureBlack = Color(0xFF000000)
+val PureBlackSurface = Color(0xFF050505)
+val PureBlackCard = Color(0xFF0D0D0D)
+
+// Midnight Blue theme
+val MidnightBlueBg = Color(0xFF0A0F1A)
+val MidnightBlueSurface = Color(0xFF0F1525)
+val MidnightBlueCard = Color(0xFF141C2E)
+val MidnightBlueOutline = Color(0xFF1E2A42)

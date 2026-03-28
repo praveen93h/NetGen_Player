@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -48,12 +49,20 @@ fun LibraryScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var showSortMenu by remember { mutableStateOf(false) }
+    var showDeleteConfirm by remember { mutableStateOf(false) }
     val selectedTabIndex = LibraryTab.entries.indexOf(uiState.currentTab)
 
     Scaffold(
         containerColor = Color.Black,
         topBar = {
-            if (uiState.isSearchActive) {
+            if (uiState.isSelectionMode) {
+                SelectionToolbar(
+                    selectedCount = uiState.selectedIds.size,
+                    onClearSelection = { viewModel.clearSelection() },
+                    onSelectAll = { viewModel.selectAll() },
+                    onDelete = { showDeleteConfirm = true }
+                )
+            } else if (uiState.isSearchActive) {
                 SearchBar(
                     query = uiState.searchQuery,
                     onQueryChange = { viewModel.setSearchQuery(it) },
@@ -191,12 +200,27 @@ fun LibraryScreen(
             }
 
             when (uiState.currentTab) {
-                LibraryTab.ALL -> MediaGrid(
-                    mediaList = uiState.mediaList,
-                    isGridView = uiState.isGridView,
-                    onMediaClick = onMediaClick,
-                    onScanClick = { viewModel.scanMedia() }
-                )
+                LibraryTab.ALL -> {
+                    if (uiState.continueWatching.isNotEmpty() && !uiState.isSearchActive) {
+                        ContinueWatchingSection(
+                            mediaList = uiState.continueWatching,
+                            onMediaClick = onMediaClick
+                        )
+                    }
+                    MediaGrid(
+                        mediaList = uiState.mediaList,
+                        isGridView = uiState.isGridView,
+                        onMediaClick = { media ->
+                            if (uiState.isSelectionMode) viewModel.toggleSelection(media.id)
+                            else onMediaClick(media)
+                        },
+                        onScanClick = { viewModel.scanMedia() },
+                        selectedIds = uiState.selectedIds,
+                        isSelectionMode = uiState.isSelectionMode,
+                        onLongClick = { media -> viewModel.enterSelectionMode(media.id) },
+                        onFavoriteClick = { media, fav -> viewModel.toggleFavorite(media.id, fav) }
+                    )
+                }
                 LibraryTab.FOLDERS -> FolderList(
                     folders = uiState.folders,
                     onFolderClick = onFolderClick
@@ -204,15 +228,150 @@ fun LibraryScreen(
                 LibraryTab.RECENT -> MediaGrid(
                     mediaList = uiState.recentlyPlayed,
                     isGridView = uiState.isGridView,
-                    onMediaClick = onMediaClick
+                    onMediaClick = { media ->
+                        if (uiState.isSelectionMode) viewModel.toggleSelection(media.id)
+                        else onMediaClick(media)
+                    },
+                    selectedIds = uiState.selectedIds,
+                    isSelectionMode = uiState.isSelectionMode,
+                    onLongClick = { media -> viewModel.enterSelectionMode(media.id) },
+                    onFavoriteClick = { media, fav -> viewModel.toggleFavorite(media.id, fav) }
                 )
                 LibraryTab.FAVORITES -> MediaGrid(
                     mediaList = uiState.favorites,
                     isGridView = uiState.isGridView,
-                    onMediaClick = onMediaClick
+                    onMediaClick = { media ->
+                        if (uiState.isSelectionMode) viewModel.toggleSelection(media.id)
+                        else onMediaClick(media)
+                    },
+                    selectedIds = uiState.selectedIds,
+                    isSelectionMode = uiState.isSelectionMode,
+                    onLongClick = { media -> viewModel.enterSelectionMode(media.id) },
+                    onFavoriteClick = { media, fav -> viewModel.toggleFavorite(media.id, fav) }
                 )
             }
         }
+    }
+
+    if (showDeleteConfirm) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirm = false },
+            title = { Text("Delete") },
+            text = { Text(stringResource(R.string.library_batch_delete_confirm, uiState.selectedIds.size)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.deleteSelected()
+                    showDeleteConfirm = false
+                }) { Text("Delete", color = Color(0xFFEF5350)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirm = false }) { Text("Cancel") }
+            }
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SelectionToolbar(
+    selectedCount: Int,
+    onClearSelection: () -> Unit,
+    onSelectAll: () -> Unit,
+    onDelete: () -> Unit
+) {
+    TopAppBar(
+        title = {
+            Text(
+                stringResource(R.string.library_selected, selectedCount),
+                color = Color.White,
+                fontWeight = FontWeight.Bold
+            )
+        },
+        navigationIcon = {
+            IconButton(onClick = onClearSelection) {
+                Icon(Icons.Rounded.Close, "Clear selection", tint = Color.White)
+            }
+        },
+        actions = {
+            IconButton(onClick = onSelectAll) {
+                Icon(Icons.Rounded.SelectAll, stringResource(R.string.library_select_all), tint = Color.White)
+            }
+            IconButton(onClick = onDelete) {
+                Icon(Icons.Rounded.Delete, "Delete", tint = Color(0xFFEF5350))
+            }
+        },
+        colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFF1A1A1A))
+    )
+}
+
+@Composable
+private fun ContinueWatchingSection(
+    mediaList: List<MediaEntity>,
+    onMediaClick: (MediaEntity) -> Unit
+) {
+    Column(modifier = Modifier.padding(top = 8.dp)) {
+        Text(
+            stringResource(R.string.library_continue_watching),
+            color = Orange500,
+            fontWeight = FontWeight.Bold,
+            fontSize = 14.sp,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+        )
+        LazyRow(
+            contentPadding = PaddingValues(horizontal = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            items(mediaList, key = { it.id }) { media ->
+                ContinueWatchingCard(media = media, onClick = { onMediaClick(media) })
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+        HorizontalDivider(color = Color(0xFF1F1F1F), thickness = 1.dp)
+    }
+}
+
+@Composable
+private fun ContinueWatchingCard(
+    media: MediaEntity,
+    onClick: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .width(160.dp)
+            .clickable(onClick = onClick)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(16f / 9f)
+                .clip(RoundedCornerShape(6.dp))
+                .background(Color(0xFF111111))
+        ) {
+            coil.compose.AsyncImage(
+                model = coil.request.ImageRequest.Builder(androidx.compose.ui.platform.LocalContext.current)
+                    .data(media.thumbnailPath ?: media.path)
+                    .decoderFactory(coil.decode.VideoFrameDecoder.Factory())
+                    .crossfade(true)
+                    .build(),
+                contentDescription = null,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = androidx.compose.ui.layout.ContentScale.Crop
+            )
+            LinearProgressIndicator(
+                progress = { media.progressPercent },
+                modifier = Modifier.fillMaxWidth().height(3.dp).align(Alignment.BottomCenter),
+                color = Orange500,
+                trackColor = Color.White.copy(alpha = 0.15f)
+            )
+        }
+        Text(
+            text = media.title,
+            color = Color.White,
+            fontSize = 12.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(top = 4.dp)
+        )
     }
 }
 
@@ -221,7 +380,11 @@ private fun MediaGrid(
     mediaList: List<MediaEntity>,
     isGridView: Boolean,
     onMediaClick: (MediaEntity) -> Unit,
-    onScanClick: (() -> Unit)? = null
+    onScanClick: (() -> Unit)? = null,
+    selectedIds: Set<Long> = emptySet(),
+    isSelectionMode: Boolean = false,
+    onLongClick: ((MediaEntity) -> Unit)? = null,
+    onFavoriteClick: ((MediaEntity, Boolean) -> Unit)? = null
 ) {
     if (mediaList.isEmpty()) {
         Box(
@@ -271,13 +434,29 @@ private fun MediaGrid(
             modifier = Modifier.fillMaxSize().background(Color.Black)
         ) {
             items(mediaList, key = { it.id }) { media ->
-                MediaItemCard(media = media, onClick = { onMediaClick(media) }, isGridView = true)
+                MediaItemCard(
+                    media = media,
+                    onClick = { onMediaClick(media) },
+                    isGridView = true,
+                    isSelected = selectedIds.contains(media.id),
+                    isSelectionMode = isSelectionMode,
+                    onLongClick = { onLongClick?.invoke(media) },
+                    onFavoriteClick = { fav -> onFavoriteClick?.invoke(media, fav) }
+                )
             }
         }
     } else {
         LazyColumn(modifier = Modifier.fillMaxSize().background(Color.Black)) {
             items(mediaList, key = { it.id }) { media ->
-                MediaItemCard(media = media, onClick = { onMediaClick(media) }, isGridView = false)
+                MediaItemCard(
+                    media = media,
+                    onClick = { onMediaClick(media) },
+                    isGridView = false,
+                    isSelected = selectedIds.contains(media.id),
+                    isSelectionMode = isSelectionMode,
+                    onLongClick = { onLongClick?.invoke(media) },
+                    onFavoriteClick = { fav -> onFavoriteClick?.invoke(media, fav) }
+                )
                 HorizontalDivider(color = Color(0xFF181818), thickness = 0.5.dp, modifier = Modifier.padding(start = 124.dp))
             }
         }

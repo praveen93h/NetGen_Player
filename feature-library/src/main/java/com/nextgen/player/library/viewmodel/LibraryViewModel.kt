@@ -8,6 +8,7 @@ import com.nextgen.player.data.local.repository.MediaRepository
 import com.nextgen.player.data.local.repository.SortOrder
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -21,6 +22,7 @@ data class LibraryUiState(
     val folders: List<FolderInfo> = emptyList(),
     val recentlyPlayed: List<MediaEntity> = emptyList(),
     val favorites: List<MediaEntity> = emptyList(),
+    val continueWatching: List<MediaEntity> = emptyList(),
     val currentTab: LibraryTab = LibraryTab.ALL,
     val sortOrder: SortOrder = SortOrder.NAME,
     val isGridView: Boolean = true,
@@ -28,10 +30,12 @@ data class LibraryUiState(
     val isSearchActive: Boolean = false,
     val isLoading: Boolean = false,
     val isScanning: Boolean = false,
-    val mediaCount: Int = 0
+    val mediaCount: Int = 0,
+    val selectedIds: Set<Long> = emptySet(),
+    val isSelectionMode: Boolean = false
 )
 
-@OptIn(ExperimentalCoroutinesApi::class)
+@OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
 @HiltViewModel
 class LibraryViewModel @Inject constructor(
     private val mediaRepository: MediaRepository
@@ -71,14 +75,25 @@ class LibraryViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
+            mediaRepository.getContinueWatching().collect { continueWatching ->
+                _uiState.update { it.copy(continueWatching = continueWatching) }
+            }
+        }
+
+        viewModelScope.launch {
             _searchQuery
                 .debounce(300)
-                .filter { it.isNotBlank() }
                 .flatMapLatest { query ->
-                    mediaRepository.searchMedia(query)
+                    if (query.isBlank()) {
+                        _sortOrder.flatMapLatest { sortOrder ->
+                            mediaRepository.getAllMedia(sortOrder)
+                        }
+                    } else {
+                        mediaRepository.searchMedia(query)
+                    }
                 }
                 .collect { results ->
-                    _uiState.update { it.copy(mediaList = results) }
+                    _uiState.update { it.copy(mediaList = results, mediaCount = results.size) }
                 }
         }
 
@@ -101,16 +116,6 @@ class LibraryViewModel @Inject constructor(
     fun setSearchQuery(query: String) {
         _searchQuery.value = query
         _uiState.update { it.copy(searchQuery = query) }
-
-        if (query.isBlank()) {
-            viewModelScope.launch {
-                _sortOrder.flatMapLatest { sortOrder ->
-                    mediaRepository.getAllMedia(sortOrder)
-                }.first().let { mediaList ->
-                    _uiState.update { it.copy(mediaList = mediaList, mediaCount = mediaList.size) }
-                }
-            }
-        }
     }
 
     fun toggleSearch() {
@@ -140,6 +145,46 @@ class LibraryViewModel @Inject constructor(
     fun toggleFavorite(mediaId: Long, isFavorite: Boolean) {
         viewModelScope.launch {
             mediaRepository.toggleFavorite(mediaId, isFavorite)
+        }
+    }
+
+    fun toggleSelection(mediaId: Long) {
+        _uiState.update { state ->
+            val newSelected = state.selectedIds.toMutableSet()
+            if (newSelected.contains(mediaId)) newSelected.remove(mediaId) else newSelected.add(mediaId)
+            state.copy(
+                selectedIds = newSelected,
+                isSelectionMode = newSelected.isNotEmpty()
+            )
+        }
+    }
+
+    fun enterSelectionMode(mediaId: Long) {
+        _uiState.update { it.copy(isSelectionMode = true, selectedIds = setOf(mediaId)) }
+    }
+
+    fun clearSelection() {
+        _uiState.update { it.copy(isSelectionMode = false, selectedIds = emptySet()) }
+    }
+
+    fun selectAll() {
+        val allIds = _uiState.value.mediaList.map { it.id }.toSet()
+        _uiState.update { it.copy(selectedIds = allIds) }
+    }
+
+    fun deleteSelected() {
+        viewModelScope.launch {
+            val ids = _uiState.value.selectedIds.toList()
+            if (ids.isNotEmpty()) {
+                mediaRepository.deleteMediaByIds(ids)
+                clearSelection()
+            }
+        }
+    }
+
+    fun clearWatchHistory() {
+        viewModelScope.launch {
+            mediaRepository.clearWatchHistory()
         }
     }
 }

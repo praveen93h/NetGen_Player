@@ -20,8 +20,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nextgen.player.navigation.NavGraph
+import com.nextgen.player.ui.SettingsViewModel
 import com.nextgen.player.ui.theme.NextGenPlayerTheme
+import com.nextgen.player.ui.theme.ThemeMode
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
@@ -32,7 +36,25 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
 
         setContent {
-            NextGenPlayerTheme(darkTheme = true) {
+            val settingsViewModel: SettingsViewModel = hiltViewModel()
+            val settings by settingsViewModel.settings.collectAsStateWithLifecycle()
+
+            val themeMode = try {
+                ThemeMode.valueOf(settings.themeMode.uppercase())
+            } catch (_: Exception) {
+                ThemeMode.DARK
+            }
+            val accentColor = if (settings.accentColorHex.isNotEmpty()) {
+                try {
+                    androidx.compose.ui.graphics.Color(settings.accentColorHex.toLong(16))
+                } catch (_: Exception) { null }
+            } else null
+
+            NextGenPlayerTheme(
+                themeMode = themeMode,
+                dynamicColor = settings.dynamicColor,
+                accentColor = accentColor
+            ) {
                 var hasPermission by remember { mutableStateOf(checkMediaPermission()) }
                 var showRationale by remember { mutableStateOf(false) }
 

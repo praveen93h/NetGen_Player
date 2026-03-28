@@ -5,6 +5,7 @@ import com.nextgen.player.network.model.StreamInfo
 object M3uParser {
 
     fun parse(content: String, baseUrl: String = ""): List<StreamInfo> {
+        if (content.isBlank()) return emptyList()
         val lines = content.lines().map { it.trim() }
         val items = mutableListOf<StreamInfo>()
         var currentTitle = ""
@@ -14,17 +15,20 @@ object M3uParser {
             when {
                 line.isEmpty() || line.startsWith("#EXTM3U") -> continue
                 line.startsWith("#EXTINF:") -> {
-                    // Format: #EXTINF:duration,title
                     currentTitle = line.substringAfter(",", "").trim()
                 }
-                line.startsWith("#") -> continue // Skip other comments
+                line.startsWith("#") -> continue
                 else -> {
-                    val url = resolveUrl(line, baseUrl)
-                    if (url.isNotEmpty()) {
-                        val title = currentTitle.ifEmpty {
-                            url.substringAfterLast('/').substringBefore('?')
+                    try {
+                        val url = resolveUrl(line, baseUrl)
+                        if (url.isNotEmpty()) {
+                            val title = currentTitle.ifEmpty {
+                                url.substringAfterLast('/').substringBefore('?')
+                            }
+                            items.add(StreamInfo.detect(url, title))
                         }
-                        items.add(StreamInfo.detect(url, title))
+                    } catch (_: Exception) {
+                        // Skip malformed entries
                     }
                     currentTitle = ""
                 }

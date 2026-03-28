@@ -54,4 +54,32 @@ class SettingsViewModel @Inject constructor(
     fun setNightFilterIntensity(intensity: Float) {
         viewModelScope.launch { settingsRepository.updateNightFilterIntensity(intensity) }
     }
+
+    fun setThemeMode(mode: String) {
+        viewModelScope.launch { settingsRepository.updateThemeMode(mode) }
+    }
+
+    fun setDynamicColor(enabled: Boolean) {
+        viewModelScope.launch { settingsRepository.updateDynamicColor(enabled) }
+    }
+
+    fun setAccentColorHex(hex: String) {
+        viewModelScope.launch { settingsRepository.updateAccentColorHex(hex) }
+    }
+
+    fun setDoubleTapSeekDuration(seconds: Int) {
+        viewModelScope.launch { settingsRepository.updateDoubleTapSeekDuration(seconds) }
+    }
+
+    fun setSeekSensitivity(sensitivity: Float) {
+        viewModelScope.launch { settingsRepository.updateSeekSensitivity(sensitivity) }
+    }
+
+    fun setSwipeBrightnessEnabled(enabled: Boolean) {
+        viewModelScope.launch { settingsRepository.updateSwipeBrightnessEnabled(enabled) }
+    }
+
+    fun setSwipeVolumeEnabled(enabled: Boolean) {
+        viewModelScope.launch { settingsRepository.updateSwipeVolumeEnabled(enabled) }
+    }
 }

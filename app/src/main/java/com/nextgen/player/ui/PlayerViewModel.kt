@@ -67,7 +67,11 @@ data class PlayerUiState(
     val isShuffled: Boolean = false,
     val repeatMode: RepeatMode = RepeatMode.OFF,
     val skipSilenceEnabled: Boolean = false,
-    val originalQueue: List<MediaEntity> = emptyList()
+    val originalQueue: List<MediaEntity> = emptyList(),
+    // v1.5 gesture settings
+    val doubleTapSeekDuration: Int = 10,
+    val swipeBrightnessEnabled: Boolean = true,
+    val swipeVolumeEnabled: Boolean = true
 ) {
     val formattedAudioDelay: String
         get() {
@@ -136,7 +140,10 @@ class PlayerViewModel @Inject constructor(
                 _uiState.update {
                     it.copy(
                         autoPlayNext = settings.autoPlayNext,
-                        nightFilterIntensity = settings.nightFilterIntensity
+                        nightFilterIntensity = settings.nightFilterIntensity,
+                        doubleTapSeekDuration = settings.doubleTapSeekDuration,
+                        swipeBrightnessEnabled = settings.swipeBrightnessEnabled,
+                        swipeVolumeEnabled = settings.swipeVolumeEnabled
                     )
                 }
             }
@@ -149,8 +156,6 @@ class PlayerViewModel @Inject constructor(
     }
 
     fun initialize(mediaId: Long, mediaPath: String, folderPath: String? = null) {
-        playerEngine.initialize()
-
         viewModelScope.launch {
             val mediaInfo = mediaRepository.getMediaById(mediaId)
             _uiState.update { it.copy(mediaInfo = mediaInfo) }
@@ -182,6 +187,7 @@ class PlayerViewModel @Inject constructor(
             _uiState.update { it.copy(audioTrackInfoList = playerEngine.getAudioTrackInfoList()) }
 
             playerEngine.player?.let { player ->
+                audioEngine.attachPlayer(player)
                 audioEngine.initLoudnessEnhancer(player.audioSessionId)
                 equalizerEngine.initialize(player.audioSessionId)
             }
@@ -195,6 +201,7 @@ class PlayerViewModel @Inject constructor(
 
         positionUpdateJob = viewModelScope.launch {
             var tickCount = 0
+            var playCountIncremented = false
             while (isActive) {
                 delay(200)
                 tickCount++
@@ -211,7 +218,12 @@ class PlayerViewModel @Inject constructor(
                 playerEngine.checkABRepeat()
 
                 if (tickCount % 75 == 0) {
-                    savePosition()
+                    savePositionOnly()
+                }
+
+                if (!playCountIncremented && pos > 5000) {
+                    playCountIncremented = true
+                    incrementPlayCount()
                 }
             }
         }
@@ -220,13 +232,12 @@ class PlayerViewModel @Inject constructor(
     }
 
     fun initializeFromUri(uri: Uri) {
-        playerEngine.initialize()
-
         viewModelScope.launch {
             playerEngine.prepare(uri, 0L)
             playerEngine.play()
 
             playerEngine.player?.let { player ->
+                audioEngine.attachPlayer(player)
                 audioEngine.initLoudnessEnhancer(player.audioSessionId)
                 equalizerEngine.initialize(player.audioSessionId)
             }
@@ -255,7 +266,7 @@ class PlayerViewModel @Inject constructor(
                 }
                 playerEngine.checkABRepeat()
                 if (tickCount % 75 == 0) {
-                    savePosition()
+                    savePositionOnly()
                 }
             }
         }
@@ -284,7 +295,8 @@ class PlayerViewModel @Inject constructor(
     }
 
     fun doubleTapSeekForward() {
-        playerEngine.seekForward()
+        val seekMs = _uiState.value.doubleTapSeekDuration * 1000L
+        playerEngine.seekForward(seekMs)
         _uiState.update { it.copy(doubleTapSide = DoubleTapSide.RIGHT) }
         viewModelScope.launch {
             delay(600)
@@ -293,7 +305,8 @@ class PlayerViewModel @Inject constructor(
     }
 
     fun doubleTapSeekBackward() {
-        playerEngine.seekBackward()
+        val seekMs = _uiState.value.doubleTapSeekDuration * 1000L
+        playerEngine.seekBackward(seekMs)
         _uiState.update { it.copy(doubleTapSide = DoubleTapSide.LEFT) }
         viewModelScope.launch {
             delay(600)
@@ -475,6 +488,22 @@ class PlayerViewModel @Inject constructor(
     }
 
     fun savePosition() {
+        viewModelScope.launch {
+            val mediaInfo = _uiState.value.mediaInfo ?: return@launch
+            val position = playerEngine.getCurrentPosition()
+            mediaRepository.updatePositionOnly(mediaInfo.id, position)
+        }
+    }
+
+    private fun savePositionOnly() {
+        viewModelScope.launch {
+            val mediaInfo = _uiState.value.mediaInfo ?: return@launch
+            val position = playerEngine.getCurrentPosition()
+            mediaRepository.updatePositionOnly(mediaInfo.id, position)
+        }
+    }
+
+    private fun incrementPlayCount() {
         viewModelScope.launch {
             val mediaInfo = _uiState.value.mediaInfo ?: return@launch
             val position = playerEngine.getCurrentPosition()

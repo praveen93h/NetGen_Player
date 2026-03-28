@@ -26,4 +26,10 @@
     <string name="library_play_all">Play All</string>
     <string name="library_badge_4k">4K</string>
     <string name="library_badge_hd">HD</string>
+
+    <!-- v1.5 -->
+    <string name="library_continue_watching">Continue Watching</string>
+    <string name="library_batch_delete_confirm">Delete %d selected items from library?</string>
+    <string name="library_selected">%d selected</string>
+    <string name="library_select_all">Select All</string>
 </resources>

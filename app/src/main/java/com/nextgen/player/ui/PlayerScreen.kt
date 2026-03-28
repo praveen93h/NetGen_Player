@@ -61,6 +61,7 @@ fun PlayerScreen(
     mediaPath: String,
     onBackPressed: () -> Unit,
     onEnterPiP: (() -> Unit)? = null,
+    onFloatingVideo: ((String, Long) -> Unit)? = null,
     isInPiPMode: Boolean = false,
     folderPath: String? = null,
     viewModel: PlayerViewModel = hiltViewModel()
@@ -92,29 +93,23 @@ fun PlayerScreen(
             .background(Color.Black)
     ) {
         AndroidView(
-            factory = { context ->
-                PlayerView(context).apply {
+            factory = { ctx ->
+                PlayerView(ctx).apply {
                     useController = false
                     setShutterBackgroundColor(android.graphics.Color.TRANSPARENT)
                 }
             },
             update = { view ->
                 if (view.player !== player) view.player = player
-                // Apply video color filter
                 val filterState = uiState.videoFilterState
                 if (!filterState.isDefault) {
                     val cm = android.graphics.ColorMatrix(filterState.toColorMatrixArray())
-                    view.videoSurfaceView?.let { surface ->
-                        if (surface is android.view.TextureView) {
-                            // Cannot apply color filter to TextureView directly; handled via overlay
-                        }
-                    }
-                    // Apply to overlay layer for SurfaceView-based rendering
-                    view.overlayFrameLayout?.foreground = android.graphics.drawable.ColorDrawable().apply {
+                    val paint = android.graphics.Paint().apply {
                         colorFilter = android.graphics.ColorMatrixColorFilter(cm)
                     }
+                    view.setLayerType(android.view.View.LAYER_TYPE_HARDWARE, paint)
                 } else {
-                    view.overlayFrameLayout?.foreground = null
+                    view.setLayerType(android.view.View.LAYER_TYPE_NONE, null)
                 }
             },
             modifier = Modifier.fillMaxSize()
@@ -190,8 +185,11 @@ fun PlayerScreen(
                                             GestureZoneType.SEEK
                                         } else {
                                             val halfWidth = size.width / 2
-                                            if (startX < halfWidth) GestureZoneType.BRIGHTNESS
-                                            else GestureZoneType.VOLUME
+                                            if (startX < halfWidth && uiState.swipeBrightnessEnabled)
+                                                GestureZoneType.BRIGHTNESS
+                                            else if (startX >= halfWidth && uiState.swipeVolumeEnabled)
+                                                GestureZoneType.VOLUME
+                                            else GestureZoneType.NONE
                                         }
 
                                         viewModel.onGestureStart(dragType)
@@ -388,7 +386,7 @@ fun PlayerScreen(
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Icon(Icons.Rounded.FastRewind, null, tint = Color.White, modifier = Modifier.size(48.dp))
                     Spacer(Modifier.height(4.dp))
-                    Text(stringResource(R.string.player_rewind), color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                    Text("-${uiState.doubleTapSeekDuration}s", color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
                 }
             }
         }
@@ -416,7 +414,7 @@ fun PlayerScreen(
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Icon(Icons.Rounded.FastForward, null, tint = Color.White, modifier = Modifier.size(48.dp))
                     Spacer(Modifier.height(4.dp))
-                    Text(stringResource(R.string.player_forward), color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                    Text("+${uiState.doubleTapSeekDuration}s", color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
                 }
             }
         }
@@ -720,6 +718,18 @@ fun PlayerScreen(
                                     Icon(
                                         Icons.Rounded.PictureInPictureAlt,
                                         stringResource(R.string.player_pip),
+                                        tint = Color.White,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+
+                                IconButton(onClick = {
+                                    val pos = uiState.playerState.currentPosition
+                                    onFloatingVideo?.invoke(mediaPath, pos)
+                                }) {
+                                    Icon(
+                                        Icons.Rounded.OpenInNew,
+                                        "Floating Video",
                                         tint = Color.White,
                                         modifier = Modifier.size(20.dp)
                                     )
@@ -1298,7 +1308,7 @@ private fun SyncAudioBottomSheet(
                 Slider(
                     value = audioBoostLevel.toFloat(),
                     onValueChange = { onAudioBoostChange(it.toInt()) },
-                    valueRange = 0f..200f,
+                    valueRange = 0f..300f,
                     colors = SliderDefaults.colors(
                         thumbColor = Orange500,
                         activeTrackColor = Orange500,
@@ -1329,7 +1339,7 @@ private fun SyncAudioBottomSheet(
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    FilledTonalButton(onClick = { onAudioDelayChange((audioDelayMs - 100).coerceAtLeast(-1000)) }) {
+                    FilledTonalButton(onClick = { onAudioDelayChange((audioDelayMs - 100).coerceAtLeast(-5000)) }) {
                         Text(stringResource(R.string.player_minus_100ms))
                     }
                     Spacer(modifier = Modifier.width(8.dp))
@@ -1337,7 +1347,7 @@ private fun SyncAudioBottomSheet(
                         Text(stringResource(R.string.action_reset))
                     }
                     Spacer(modifier = Modifier.width(8.dp))
-                    FilledTonalButton(onClick = { onAudioDelayChange((audioDelayMs + 100).coerceAtMost(1000)) }) {
+                    FilledTonalButton(onClick = { onAudioDelayChange((audioDelayMs + 100).coerceAtMost(5000)) }) {
                         Text(stringResource(R.string.player_plus_100ms))
                     }
                 }
@@ -1513,7 +1523,7 @@ private fun EqualizerBottomSheet(
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        "${equalizerState.bassBoostStrength / 10}%",
+                        "${(equalizerState.bassBoostStrength / 10f).toInt()}%",
                         style = MaterialTheme.typography.bodyLarge,
                         fontWeight = FontWeight.SemiBold,
                         color = Orange500
@@ -1544,7 +1554,7 @@ private fun EqualizerBottomSheet(
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        "${equalizerState.virtualizerStrength / 10}%",
+                        "${(equalizerState.virtualizerStrength / 10f).toInt()}%",
                         style = MaterialTheme.typography.bodyLarge,
                         fontWeight = FontWeight.SemiBold,
                         color = Orange500

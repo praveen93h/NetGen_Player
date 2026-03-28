@@ -4,6 +4,58 @@ All notable changes to NextGen Media Player will be documented in this file.
 
 ---
 
+## [1.5.0] — 2025-06-17
+
+### Added
+- **Material You / Dynamic Color** — Theme system with 5 modes: Dark, Pure Black (AMOLED), Midnight Blue, Light, System. Dynamic color support on Android 12+. Accent color picker with 12 preset colors
+- **Custom Gesture Mapping** — Configurable double-tap seek duration (5/10/15/20/30s). Toggle swipe-to-adjust brightness and volume gestures independently
+- **Floating Video (Pop-up Player)** — Overlay mini-player with drag-to-move, play/pause, and close controls via system overlay permission
+- **Favorites & Watch History** — Favorite toggle on media cards (heart icon). Continue Watching section on library home with progress indicators. Clear watch history option
+- **Batch Operations** — Long-press to enter selection mode. Select all / deselect. Batch delete with confirmation dialog. Selection toolbar with count display
+
+---
+
+## [1.4.1] — 2026-03-10
+
+### Fixed
+- **PlaybackService** — Eliminated duplicate MediaSession creation; service now reuses `PlayerEngine.mediaSession` instead of creating its own, fixing notification/media button conflicts
+- **PlaybackService** — Removed `onDestroy()` releasing the singleton ExoPlayer, which was killing playback app-wide
+- **GestureController** — Fixed brightness gesture crash; replaced Application→Activity context cast with explicit `attachActivity()`/`detachActivity()` lifecycle pattern
+- **Audio Delay** — Now actually works; uses `ExoPlayer.setAudioOffsetMs()` instead of the previous no-op implementation
+- **Audio Engine** — Removed broken `createExternalAudioMediaItem()` that built invalid subtitle-type MediaItems for audio
+- **SFTP Playback** — Created `SftpDataSource` for ExoPlayer, enabling direct SFTP streaming with seek support via JSch
+- **Main Thread Blocking** — Removed `runBlocking` call on main thread in `PlayerActivity.onUserLeaveHint()`; replaced with cached auto-PiP setting
+- **Play Count Inflation** — Periodic position saves no longer increment play count every 15s; separated `savePositionOnly()` from `incrementPlayCount()`
+- **SMB Share Listing** — Replaced hardcoded share names with proper `connection.remoteShares` enumeration; falls back to common names only on error
+- **Video Filters** — Fixed overlay approach that drew opaque ColorDrawable on top of video; now applies color matrix via hardware layer Paint on the PlayerView
+- **Hue Rotation** — Implemented luminance-preserving hue rotation matrix in `VideoFilterState.toColorMatrixArray()`
+- **Library Search** — Clearing search query now properly restores the full media list instead of leaving stale search results
+- **FolderScreen** — Fixed flow recomposition leak; `getMediaFlow()` replaced with cached `StateFlow` using `stateIn()`
+- **MediaScanner** — Added MIME type filtering to MediaStore query to only scan supported video formats
+- **MediaScanner** — Handle scoped storage (Q+) where `DATA` column may be empty by constructing path from `RELATIVE_PATH` + `DISPLAY_NAME`
+- **NavGraph DLNA Routes** — Switched DLNA location from path segments to query parameters, fixing URL encoding issues with special characters
+- **WebDAV Authentication** — Switched from reactive `Authenticator` to preemptive `Interceptor` for Basic auth, fixing 401-sensitive servers
+- **DLNA Discovery** — Acquired `WifiManager.MulticastLock` before SSDP multicast discovery, fixing device detection on many Android devices
+- **Audio UI Ranges** — Extended audio delay range from ±1s to ±5s; audio boost slider now goes to 300% (matching engine capability)
+- **Dual PlayerEngine Init** — Removed redundant `playerEngine.initialize()` calls from ViewModel; init block already handles it
+- **SmbDataSource Seeking** — Replaced `InputStream.skip()` with smbj's native `File.read()` with offset for proper random-access seeking
+- **FtpDataSource** — Added `listFiles()` fallback when SIZE command is unsupported by the FTP server
+- **MediaRepository** — Replaced N+1 per-item DB lookups during scan with batch `getMediaByIds()` query
+- **MediaRepository** — Chunked `deleteStaleMedia()` to 500-item batches to avoid SQLite variable limit
+- **M3uParser** — Added error handling for malformed playlist entries; empty content returns empty list immediately
+- **NetworkViewModel** — Added public `disconnect()` method for cleaning up connections when navigating away
+- **Bass Boost/Virtualizer Display** — Fixed integer division in percentage display
+- **SFTP Playback URL** — Updated `getPlaybackUrl()` to include credentials as query parameters for `SftpDataSource`
+
+### Known Issues
+- Server bookmark credentials are stored in plaintext in Room DB (planned for encryption in future release)
+- Video filter gamma adjustment requires shader/LUT pipeline (not implementable via color matrix alone)
+
+### Changed
+- Version bumped to 1.4.1 (versionCode 6)
+
+---
+
 ## [1.4.0] — 2026-03-09
 
 ### Added

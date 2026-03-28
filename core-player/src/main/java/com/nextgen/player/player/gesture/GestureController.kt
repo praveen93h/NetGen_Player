@@ -55,9 +55,18 @@ class GestureController(
     private val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
     private val maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
     private var initialStateSynced = false
+    private var activityRef: Activity? = null
 
     private var _state = GestureState()
     val state: GestureState get() = _state
+
+    fun attachActivity(activity: Activity) {
+        activityRef = activity
+    }
+
+    fun detachActivity() {
+        activityRef = null
+    }
 
     private fun syncInitialState() {
         if (initialStateSynced) return
@@ -69,7 +78,7 @@ class GestureController(
     }
 
     fun getBrightness(): Float {
-        val activity = context as? Activity ?: return 0.5f
+        val activity = activityRef ?: return 0.5f
         val layoutParams = activity.window.attributes
         return if (layoutParams.screenBrightness >= 0) {
             layoutParams.screenBrightness
@@ -86,7 +95,7 @@ class GestureController(
     }
 
     fun setBrightness(level: Float) {
-        val activity = context as? Activity ?: return
+        val activity = activityRef ?: return
         val clamped = level.coerceIn(0.01f, 1f)
         val layoutParams = activity.window.attributes
         layoutParams.screenBrightness = clamped

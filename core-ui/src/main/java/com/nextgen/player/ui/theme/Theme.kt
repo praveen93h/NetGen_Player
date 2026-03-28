@@ -1,16 +1,24 @@
 package com.nextgen.player.ui.theme
 
 import android.app.Activity
+import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.dynamicDarkColorScheme
+import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
+
+enum class ThemeMode {
+    DARK, PURE_BLACK, MIDNIGHT_BLUE, LIGHT, SYSTEM
+}
 
 private val DarkColorScheme = darkColorScheme(
     primary = Orange500,
@@ -39,6 +47,60 @@ private val DarkColorScheme = darkColorScheme(
     onError = Color.White
 )
 
+private val PureBlackColorScheme = darkColorScheme(
+    primary = Orange500,
+    onPrimary = Color.White,
+    primaryContainer = Orange700,
+    onPrimaryContainer = Color.White,
+    secondary = Blue400,
+    onSecondary = Color.White,
+    secondaryContainer = Blue500,
+    onSecondaryContainer = Color.White,
+    tertiary = Orange400,
+    background = PureBlack,
+    onBackground = TextPrimary,
+    surface = PureBlackSurface,
+    onSurface = TextPrimary,
+    surfaceVariant = PureBlackCard,
+    onSurfaceVariant = TextSecondary,
+    surfaceContainerHighest = Color(0xFF1A1A1A),
+    surfaceContainerHigh = Color(0xFF141414),
+    surfaceContainer = Color(0xFF0A0A0A),
+    surfaceContainerLow = PureBlackSurface,
+    surfaceContainerLowest = PureBlack,
+    outline = Color(0xFF222222),
+    outlineVariant = Color(0xFF1A1A1A),
+    error = ErrorRed,
+    onError = Color.White
+)
+
+private val MidnightBlueColorScheme = darkColorScheme(
+    primary = Orange500,
+    onPrimary = Color.White,
+    primaryContainer = Orange700,
+    onPrimaryContainer = Color.White,
+    secondary = Blue400,
+    onSecondary = Color.White,
+    secondaryContainer = Blue500,
+    onSecondaryContainer = Color.White,
+    tertiary = Orange400,
+    background = MidnightBlueBg,
+    onBackground = TextPrimary,
+    surface = MidnightBlueSurface,
+    onSurface = TextPrimary,
+    surfaceVariant = MidnightBlueCard,
+    onSurfaceVariant = TextSecondary,
+    surfaceContainerHighest = Color(0xFF1E2A42),
+    surfaceContainerHigh = Color(0xFF182236),
+    surfaceContainer = MidnightBlueCard,
+    surfaceContainerLow = MidnightBlueSurface,
+    surfaceContainerLowest = MidnightBlueBg,
+    outline = MidnightBlueOutline,
+    outlineVariant = Color(0xFF162033),
+    error = ErrorRed,
+    onError = Color.White
+)
+
 private val LightColorScheme = lightColorScheme(
     primary = Orange500,
     onPrimary = Color.White,
@@ -56,10 +118,38 @@ private val LightColorScheme = lightColorScheme(
 
 @Composable
 fun NextGenPlayerTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
+    themeMode: ThemeMode = ThemeMode.DARK,
+    dynamicColor: Boolean = false,
+    accentColor: Color? = null,
     content: @Composable () -> Unit
 ) {
-    val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme
+    val context = LocalContext.current
+    val isDark = when (themeMode) {
+        ThemeMode.LIGHT -> false
+        ThemeMode.SYSTEM -> isSystemInDarkTheme()
+        else -> true
+    }
+
+    val colorScheme = when {
+        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
+            if (isDark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+        }
+        else -> {
+            val baseScheme = when (themeMode) {
+                ThemeMode.PURE_BLACK -> PureBlackColorScheme
+                ThemeMode.MIDNIGHT_BLUE -> MidnightBlueColorScheme
+                ThemeMode.LIGHT -> LightColorScheme
+                ThemeMode.SYSTEM -> if (isDark) DarkColorScheme else LightColorScheme
+                ThemeMode.DARK -> DarkColorScheme
+            }
+            if (accentColor != null) {
+                baseScheme.copy(
+                    primary = accentColor,
+                    primaryContainer = accentColor.copy(alpha = 0.7f)
+                )
+            } else baseScheme
+        }
+    }
 
     val view = LocalView.current
     if (!view.isInEditMode) {
@@ -68,8 +158,8 @@ fun NextGenPlayerTheme(
             window.statusBarColor = Color.Transparent.toArgb()
             window.navigationBarColor = Color.Transparent.toArgb()
             WindowCompat.getInsetsController(window, view).apply {
-                isAppearanceLightStatusBars = !darkTheme
-                isAppearanceLightNavigationBars = !darkTheme
+                isAppearanceLightStatusBars = !isDark
+                isAppearanceLightNavigationBars = !isDark
             }
         }
     }

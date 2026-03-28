@@ -15,7 +15,6 @@ import com.hierynomus.smbj.SmbConfig
 import com.hierynomus.smbj.auth.AuthenticationContext
 import com.hierynomus.smbj.share.DiskShare
 import com.hierynomus.smbj.share.File
-import java.io.InputStream
 import java.util.EnumSet
 import java.util.concurrent.TimeUnit
 
@@ -32,9 +31,9 @@ class SmbDataSource(
     private var client: SMBClient? = null
     private var share: DiskShare? = null
     private var file: File? = null
-    private var inputStream: InputStream? = null
     private var uri: Uri? = null
     private var bytesRemaining: Long = 0
+    private var fileOffset: Long = 0
 
     override fun open(dataSpec: DataSpec): Long {
         uri = dataSpec.uri
@@ -64,17 +63,12 @@ class SmbDataSource(
         )
 
         val fileLength = file!!.fileInformation.standardInformation.endOfFile
-        val position = dataSpec.position
-        inputStream = file!!.inputStream
-
-        if (position > 0) {
-            inputStream!!.skip(position)
-        }
+        fileOffset = dataSpec.position
 
         bytesRemaining = if (dataSpec.length != C.LENGTH_UNSET.toLong()) {
             dataSpec.length
         } else {
-            fileLength - position
+            fileLength - fileOffset
         }
 
         transferStarted(dataSpec)
@@ -84,8 +78,9 @@ class SmbDataSource(
     override fun read(buffer: ByteArray, offset: Int, length: Int): Int {
         if (bytesRemaining == 0L) return C.RESULT_END_OF_INPUT
         val toRead = minOf(length.toLong(), bytesRemaining).toInt()
-        val bytesRead = inputStream?.read(buffer, offset, toRead) ?: C.RESULT_END_OF_INPUT
-        if (bytesRead == -1) return C.RESULT_END_OF_INPUT
+        val bytesRead = file?.read(buffer, fileOffset, offset, toRead) ?: return C.RESULT_END_OF_INPUT
+        if (bytesRead <= 0) return C.RESULT_END_OF_INPUT
+        fileOffset += bytesRead
         bytesRemaining -= bytesRead
         bytesTransferred(bytesRead)
         return bytesRead
@@ -94,11 +89,9 @@ class SmbDataSource(
     override fun getUri(): Uri? = uri
 
     override fun close() {
-        try { inputStream?.close() } catch (_: Exception) { }
         try { file?.close() } catch (_: Exception) { }
         try { share?.close() } catch (_: Exception) { }
         try { client?.close() } catch (_: Exception) { }
-        inputStream = null
         file = null
         share = null
         client = null

@@ -20,7 +20,7 @@ object Routes {
     const val SETTINGS = "settings"
     const val NETWORK = "network"
     const val NETWORK_BROWSE_SERVER = "network/browse/{serverId}"
-    const val NETWORK_BROWSE_DLNA = "network/dlna/{location}/{name}"
+    const val NETWORK_BROWSE_DLNA = "network/dlna?location={location}&name={name}"
 
     fun folderRoute(folderPath: String, folderName: String): String {
         val encodedPath = URLEncoder.encode(folderPath, "UTF-8")
@@ -33,7 +33,7 @@ object Routes {
     fun networkBrowseDlna(location: String, name: String): String {
         val encodedLocation = URLEncoder.encode(location, "UTF-8")
         val encodedName = URLEncoder.encode(name, "UTF-8")
-        return "network/dlna/$encodedLocation/$encodedName"
+        return "network/dlna?location=$encodedLocation&name=$encodedName"
     }
 }
 
@@ -121,11 +121,11 @@ fun NavGraph(
             route = Routes.NETWORK_BROWSE_DLNA,
             arguments = listOf(
                 navArgument("location") { type = NavType.StringType },
-                navArgument("name") { type = NavType.StringType }
+                navArgument("name") { type = NavType.StringType; defaultValue = "" }
             )
         ) { backStackEntry ->
-            val location = URLDecoder.decode(backStackEntry.arguments?.getString("location") ?: "", "UTF-8")
-            val name = URLDecoder.decode(backStackEntry.arguments?.getString("name") ?: "", "UTF-8")
+            val location = backStackEntry.arguments?.getString("location") ?: ""
+            val name = backStackEntry.arguments?.getString("name") ?: ""
             ServerBrowserScreen(
                 dlnaLocation = location,
                 dlnaName = name,

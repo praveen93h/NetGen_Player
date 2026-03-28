@@ -297,8 +297,7 @@ class NetworkViewModel @Inject constructor(
                 (currentClient as? FtpClient)?.getStreamUri(config, file.path)
             }
             ServerType.SFTP -> {
-                // SFTP doesn't have a direct stream URI; use sftp:// scheme
-                "sftp://${config.username}:${config.password}@${config.host}:${config.port}${file.path}"
+                "sftp://${config.host}:${config.port}${file.path}?user=${java.net.URLEncoder.encode(config.username, "UTF-8")}&pass=${java.net.URLEncoder.encode(config.password, "UTF-8")}"
             }
             ServerType.WEBDAV -> {
                 (currentClient as? WebDavClient)?.getStreamUrl(file.path)
@@ -352,6 +351,11 @@ class NetworkViewModel @Inject constructor(
 
     private fun saveRecentUrls(urls: List<String>) {
         prefs.edit().putString("recent_urls", urls.joinToString("\n")).apply()
+    }
+
+    fun disconnect() {
+        disconnectAll()
+        _uiState.update { it.copy(currentFiles = emptyList(), currentPath = "", currentServerName = "", connectionError = null) }
     }
 
     override fun onCleared() {

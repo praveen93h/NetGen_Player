@@ -25,29 +25,31 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewModelScope
 import com.nextgen.player.data.local.entity.MediaEntity
 import com.nextgen.player.data.local.repository.MediaRepository
 import com.nextgen.player.library.R
 import com.nextgen.player.library.ui.components.MediaItemCard
 import com.nextgen.player.ui.theme.Orange500
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
 import javax.inject.Inject
 
+@OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class FolderViewModel @Inject constructor(
     private val mediaRepository: MediaRepository
 ) : ViewModel() {
     private val _folderPath = MutableStateFlow("")
-    private val _mediaList = MutableStateFlow<List<MediaEntity>>(emptyList())
-    val mediaList: StateFlow<List<MediaEntity>> = _mediaList.asStateFlow()
+
+    val mediaList: StateFlow<List<MediaEntity>> = _folderPath
+        .filter { it.isNotEmpty() }
+        .flatMapLatest { path -> mediaRepository.getMediaInFolder(path) }
+        .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
     fun loadFolder(path: String) {
         _folderPath.value = path
-    }
-
-    fun getMediaFlow(folderPath: String): Flow<List<MediaEntity>> {
-        return mediaRepository.getMediaInFolder(folderPath)
     }
 
     private var _isGridView = MutableStateFlow(false)
@@ -65,7 +67,10 @@ fun FolderScreen(
     onBackClick: () -> Unit,
     viewModel: FolderViewModel = hiltViewModel()
 ) {
-    val mediaList by viewModel.getMediaFlow(folderPath).collectAsStateWithLifecycle(initialValue = emptyList())
+    LaunchedEffect(folderPath) {
+        viewModel.loadFolder(folderPath)
+    }
+    val mediaList by viewModel.mediaList.collectAsStateWithLifecycle()
     val isGridView by viewModel.isGridView.collectAsStateWithLifecycle()
 
     Scaffold(

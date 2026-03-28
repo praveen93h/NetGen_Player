@@ -56,7 +56,35 @@ data class VideoFilterState(
             r, g, bl + s, 0f, 0f,
             0f, 0f, 0f, 1f, 0f
         )
-        return multiplyColorMatrices(result2, satMatrix)
+        val result3 = multiplyColorMatrices(result2, satMatrix)
+
+        // Apply hue rotation
+        if (hue != 0f) {
+            val hueRad = Math.toRadians(hue.toDouble())
+            val cosH = kotlin.math.cos(hueRad).toFloat()
+            val sinH = kotlin.math.sin(hueRad).toFloat()
+            val lumR = 0.213f
+            val lumG = 0.715f
+            val lumB = 0.072f
+            val hueMatrix = floatArrayOf(
+                lumR + cosH * (1 - lumR) + sinH * (-lumR),
+                lumG + cosH * (-lumG) + sinH * (-lumG),
+                lumB + cosH * (-lumB) + sinH * (1 - lumB),
+                0f, 0f,
+                lumR + cosH * (-lumR) + sinH * 0.143f,
+                lumG + cosH * (1 - lumG) + sinH * 0.140f,
+                lumB + cosH * (-lumB) + sinH * (-0.283f),
+                0f, 0f,
+                lumR + cosH * (-lumR) + sinH * (-(1 - lumR)),
+                lumG + cosH * (-lumG) + sinH * lumG,
+                lumB + cosH * (1 - lumB) + sinH * lumB,
+                0f, 0f,
+                0f, 0f, 0f, 1f, 0f
+            )
+            return multiplyColorMatrices(result3, hueMatrix)
+        }
+
+        return result3
     }
 
     companion object {

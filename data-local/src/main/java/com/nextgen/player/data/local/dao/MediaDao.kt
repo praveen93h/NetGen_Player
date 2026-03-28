@@ -22,6 +22,9 @@ interface MediaDao {
     @Query("SELECT * FROM media_items WHERE lastPlayedAt > 0 ORDER BY lastPlayedAt DESC LIMIT :limit")
     fun getRecentlyPlayed(limit: Int = 20): Flow<List<MediaEntity>>
 
+    @Query("SELECT * FROM media_items WHERE lastPosition > 0 AND duration > 0 AND CAST(lastPosition AS REAL) / duration < 0.95 AND CAST(lastPosition AS REAL) / duration > 0.01 ORDER BY lastPlayedAt DESC LIMIT :limit")
+    fun getContinueWatching(limit: Int = 10): Flow<List<MediaEntity>>
+
     @Query("SELECT * FROM media_items WHERE isFavorite = 1 ORDER BY title ASC")
     fun getFavorites(): Flow<List<MediaEntity>>
 
@@ -36,6 +39,9 @@ interface MediaDao {
 
     @Query("SELECT * FROM media_items WHERE id = :id")
     suspend fun getMediaById(id: Long): MediaEntity?
+
+    @Query("SELECT * FROM media_items WHERE id IN (:ids)")
+    suspend fun getMediaByIds(ids: List<Long>): List<MediaEntity>
 
     @Query("SELECT * FROM media_items WHERE path = :path")
     suspend fun getMediaByPath(path: String): MediaEntity?
@@ -60,6 +66,12 @@ interface MediaDao {
 
     @Delete
     suspend fun deleteMedia(media: MediaEntity)
+
+    @Query("DELETE FROM media_items WHERE id IN (:ids)")
+    suspend fun deleteMediaByIds(ids: List<Long>)
+
+    @Query("UPDATE media_items SET lastPlayedAt = 0, lastPosition = 0, playCount = 0 WHERE lastPlayedAt > 0")
+    suspend fun clearWatchHistory()
 
     @Query("DELETE FROM media_items WHERE path NOT IN (:validPaths)")
     suspend fun deleteStaleMedia(validPaths: List<String>)

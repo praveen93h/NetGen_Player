@@ -34,6 +34,10 @@ class MediaRepository @Inject constructor(
         return mediaDao.getFavorites()
     }
 
+    fun getContinueWatching(): Flow<List<MediaEntity>> {
+        return mediaDao.getContinueWatching()
+    }
+
     fun getFolders(): Flow<List<FolderInfo>> {
         return mediaDao.getFolders()
     }
@@ -66,12 +70,26 @@ class MediaRepository @Inject constructor(
         mediaDao.updateFavorite(id, isFavorite)
     }
 
+    suspend fun deleteMediaByIds(ids: List<Long>) {
+        ids.chunked(500).forEach { chunk ->
+            mediaDao.deleteMediaByIds(chunk)
+        }
+    }
+
+    suspend fun clearWatchHistory() {
+        mediaDao.clearWatchHistory()
+    }
+
     suspend fun scanAndSyncMedia() {
         val scannedMedia = mediaScanner.scanMedia()
         val existingMedia = mutableMapOf<Long, MediaEntity>()
 
+        // Batch-lookup existing records by IDs to reduce N+1 queries
+        val existingList = mediaDao.getMediaByIds(scannedMedia.map { it.id })
+        val existingMap = existingList.associateBy { it.id }
+
         scannedMedia.forEach { scanned ->
-            val existing = mediaDao.getMediaById(scanned.id)
+            val existing = existingMap[scanned.id]
             if (existing != null) {
                 existingMedia[scanned.id] = scanned.copy(
                     lastPlayedAt = existing.lastPlayedAt,
@@ -86,7 +104,10 @@ class MediaRepository @Inject constructor(
 
         mediaDao.insertAllMedia(existingMedia.values.toList())
 
+        // Chunk the valid paths to avoid SQLite variable limit
         val validPaths = scannedMedia.map { it.path }
-        mediaDao.deleteStaleMedia(validPaths)
+        validPaths.chunked(500).forEach { chunk ->
+            mediaDao.deleteStaleMedia(chunk)
+        }
     }
 }

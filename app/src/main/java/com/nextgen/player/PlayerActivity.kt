@@ -8,6 +8,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.ActivityInfo
+import android.provider.Settings
 import android.content.res.Configuration
 import android.graphics.drawable.Icon
 import android.net.Uri
@@ -27,9 +28,8 @@ import com.nextgen.player.data.SettingsRepository
 import com.nextgen.player.player.PlayerEngine
 import com.nextgen.player.ui.PlayerScreen
 import com.nextgen.player.ui.theme.NextGenPlayerTheme
+import com.nextgen.player.ui.theme.ThemeMode
 import dagger.hilt.android.AndroidEntryPoint
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.runBlocking
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -48,6 +48,7 @@ class PlayerActivity : ComponentActivity() {
 
     @Inject lateinit var playerEngine: PlayerEngine
     @Inject lateinit var settingsRepository: SettingsRepository
+    @Inject lateinit var gestureController: com.nextgen.player.player.gesture.GestureController
 
     private var mediaId: Long = -1L
     private var mediaPath: String = ""
@@ -81,10 +82,13 @@ class PlayerActivity : ComponentActivity() {
 
         resolveIntent(intent)
 
-        // Load auto-PiP preference
-        try {
-            autoPiP = runBlocking { settingsRepository.settings.first().autoPiP }
-        } catch (_: Exception) { }
+        gestureController.attachActivity(this)
+
+        // Load auto-PiP preference asynchronously before setContent
+        val initialAutoPiP = try {
+            settingsRepository.cachedAutoPiP
+        } catch (_: Exception) { true }
+        autoPiP = initialAutoPiP
 
         // Register PiP control receiver
         ContextCompat.registerReceiver(
@@ -93,14 +97,43 @@ class PlayerActivity : ComponentActivity() {
         )
 
         setContent {
-            NextGenPlayerTheme(darkTheme = true) {
+            val settingsFlow = settingsRepository.settings.collectAsState(
+                initial = com.nextgen.player.data.AppSettings()
+            )
+            val appSettings = settingsFlow.value
+            val themeMode = try {
+                ThemeMode.valueOf(appSettings.themeMode.uppercase())
+            } catch (_: Exception) { ThemeMode.DARK }
+            val accentColor = if (appSettings.accentColorHex.isNotEmpty()) {
+                try {
+                    androidx.compose.ui.graphics.Color(appSettings.accentColorHex.toLong(16))
+                } catch (_: Exception) { null }
+            } else null
+
+            NextGenPlayerTheme(
+                themeMode = themeMode,
+                dynamicColor = appSettings.dynamicColor,
+                accentColor = accentColor
+            ) {
                 PlayerScreen(
                     mediaId = mediaId,
                     mediaPath = mediaPath,
                     onBackPressed = { finish() },
                     onEnterPiP = { enterPiPMode() },
                     isInPiPMode = isInPiPMode,
-                    folderPath = folderPath
+                    folderPath = folderPath,
+                    onFloatingVideo = { path, position ->
+                        if (Settings.canDrawOverlays(this@PlayerActivity)) {
+                            com.nextgen.player.service.FloatingVideoService.start(this@PlayerActivity, path, position)
+                            finish()
+                        } else {
+                            val intent = Intent(
+                                Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                                Uri.parse("package:$packageName")
+                            )
+                            startActivity(intent)
+                        }
+                    }
                 )
             }
         }
@@ -130,6 +163,12 @@ class PlayerActivity : ComponentActivity() {
             hide(WindowInsetsCompat.Type.systemBars())
             systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         }
+    }
+
+    override fun onDestroy() {
+        gestureController.detachActivity()
+        try { unregisterReceiver(pipReceiver) } catch (_: Exception) { }
+        super.onDestroy()
     }
 
     override fun onPause() {
@@ -234,14 +273,8 @@ class PlayerActivity : ComponentActivity() {
         super.onUserLeaveHint()
         if (autoPiP && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
-                // On pre-S, use manual PiP entry (S+ uses setAutoEnterEnabled)
                 enterPiPMode()
             }
         }
-    }
-
-    override fun onDestroy() {
-        try { unregisterReceiver(pipReceiver) } catch (_: Exception) { }
-        super.onDestroy()
     }
 }

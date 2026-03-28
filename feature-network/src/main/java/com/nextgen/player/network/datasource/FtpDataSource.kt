@@ -95,9 +95,17 @@ class FtpDataSource(
     }
 
     private fun FTPClient.getSize(path: String): Long? {
-        sendCommand("SIZE", path)
-        return if (replyCode == 213) {
-            replyString.trim().substringAfterLast(' ').toLongOrNull()
-        } else null
+        return try {
+            sendCommand("SIZE", path)
+            if (replyCode == 213) {
+                replyString.trim().substringAfterLast(' ').toLongOrNull()
+            } else {
+                // Fallback: try MLST or listFiles to get size
+                val files = listFiles(path)
+                files.firstOrNull()?.size
+            }
+        } catch (_: Exception) {
+            null
+        }
     }
 }

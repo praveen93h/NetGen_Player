@@ -2,12 +2,7 @@ package com.nextgen.player.player.audio
 
 import android.content.Context
 import android.media.audiofx.LoudnessEnhancer
-import android.net.Uri
-import androidx.annotation.OptIn
-import androidx.media3.common.C
-import androidx.media3.common.MediaItem
-import androidx.media3.common.MimeTypes
-import androidx.media3.common.util.UnstableApi
+import androidx.media3.exoplayer.ExoPlayer
 import javax.inject.Singleton
 
 @Singleton
@@ -17,9 +12,14 @@ class AudioEngine(
     private var loudnessEnhancer: LoudnessEnhancer? = null
     private var audioBoostLevel: Int = 100
     private var audioDelayMs: Long = 0L
+    private var playerRef: ExoPlayer? = null
 
     val currentBoostLevel: Int get() = audioBoostLevel
     val currentDelayMs: Long get() = audioDelayMs
+
+    fun attachPlayer(player: ExoPlayer) {
+        playerRef = player
+    }
 
     fun initLoudnessEnhancer(audioSessionId: Int) {
         releaseLoudnessEnhancer()
@@ -70,7 +70,7 @@ class AudioEngine(
     }
 
     fun resetAudioDelay() {
-        audioDelayMs = 0L
+        setAudioDelay(0L)
     }
 
     val formattedDelay: String
@@ -83,15 +83,6 @@ class AudioEngine(
     val formattedBoost: String
         get() = "${audioBoostLevel}%"
 
-    @OptIn(UnstableApi::class)
-    fun createExternalAudioMediaItem(audioUri: Uri): MediaItem.SubtitleConfiguration {
-        return MediaItem.SubtitleConfiguration.Builder(audioUri)
-            .setMimeType(MimeTypes.BASE_TYPE_AUDIO)
-            .setLanguage("und")
-            .setLabel("External Audio")
-            .build()
-    }
-
     fun releaseLoudnessEnhancer() {
         try {
             loudnessEnhancer?.release()
@@ -103,5 +94,6 @@ class AudioEngine(
         releaseLoudnessEnhancer()
         audioBoostLevel = 100
         audioDelayMs = 0L
+        playerRef = null
     }
 }

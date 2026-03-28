@@ -1,5 +1,7 @@
 package com.nextgen.player.network.client
 
+import android.content.Context
+import android.net.wifi.WifiManager
 import com.nextgen.player.network.model.DlnaDevice
 import com.nextgen.player.network.model.NetworkFile
 import kotlinx.coroutines.Dispatchers
@@ -15,7 +17,7 @@ import java.net.InetAddress
 import java.net.MulticastSocket
 import java.util.concurrent.TimeUnit
 
-class DlnaClient {
+class DlnaClient(private val context: Context) {
 
     private val httpClient = OkHttpClient.Builder()
         .connectTimeout(10, TimeUnit.SECONDS)
@@ -25,6 +27,11 @@ class DlnaClient {
     suspend fun discoverDevices(timeoutMs: Int = 5000): List<DlnaDevice> = withContext(Dispatchers.IO) {
         val devices = mutableListOf<DlnaDevice>()
         val seen = mutableSetOf<String>()
+
+        val wifiManager = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
+        val multicastLock = wifiManager.createMulticastLock("dlna_discovery")
+        multicastLock.setReferenceCounted(true)
+        multicastLock.acquire()
 
         try {
             val ssdpAddress = InetAddress.getByName("239.255.255.250")
@@ -63,7 +70,9 @@ class DlnaClient {
                 }
             }
             socket.close()
-        } catch (_: Exception) { }
+        } catch (_: Exception) { } finally {
+            if (multicastLock.isHeld) multicastLock.release()
+        }
 
         devices
     }

@@ -44,12 +44,7 @@ class SmbClient {
 
     suspend fun listShares(): List<NetworkFile> = withContext(Dispatchers.IO) {
         val shares = mutableListOf<NetworkFile>()
-        // List available shares
-        session?.connectShare("IPC\$")?.use { ipcShare ->
-            // Use transport to enumerate shares
-        }
-        // Fallback: try common share names
-        val commonShares = listOf("Public", "Media", "Videos", "shared", "data")
+        val commonShares = listOf("Public", "Media", "Videos", "shared", "data", "Music", "Documents", "Downloads")
         for (shareName in commonShares) {
             try {
                 val share = session?.connectShare(shareName) as? DiskShare
@@ -63,15 +58,7 @@ class SmbClient {
                 }
             } catch (_: Exception) { }
         }
-        // If no common shares found, return a hint
-        if (shares.isEmpty()) {
-            // Try to list all by connecting
-            try {
-                val diskShares = session?.connectShare("") as? DiskShare
-                diskShares?.close()
-            } catch (_: Exception) { }
-        }
-        shares
+        shares.sortedBy { it.name.lowercase() }
     }
 
     suspend fun listFiles(shareName: String, path: String): List<NetworkFile> = withContext(Dispatchers.IO) {
