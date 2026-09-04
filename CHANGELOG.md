@@ -4,7 +4,7 @@ All notable changes to NextGen Media Player will be documented in this file.
 
 ---
 
-## [1.6.0] - 2026-04-22
+## [1.6.0] - 2026-09-02
 
 ### Added
 - **Subtitle Powerhouse** - Promoted v1.6 as the subtitle-focused release across app metadata, README, roadmap, and release history
