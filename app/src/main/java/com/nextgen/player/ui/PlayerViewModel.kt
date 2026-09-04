@@ -1,6 +1,7 @@
 package com.nextgen.player.ui
 
 import android.net.Uri
+import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.nextgen.player.data.SettingsRepository
@@ -9,6 +10,7 @@ import com.nextgen.player.data.local.repository.MediaRepository
 import com.nextgen.player.player.AudioTrackInfo
 import com.nextgen.player.player.PlayerEngine
 import com.nextgen.player.player.PlayerState
+import com.nextgen.player.player.SubtitleTrackInfo
 import com.nextgen.player.player.VideoFilterState
 import com.nextgen.player.player.audio.AudioEngine
 import com.nextgen.player.player.audio.EqualizerEngine
@@ -17,16 +19,34 @@ import com.nextgen.player.player.gesture.GestureController
 import com.nextgen.player.player.gesture.GestureState
 import com.nextgen.player.player.gesture.GestureZoneType
 import com.nextgen.player.player.gesture.VideoScaleType
+import com.nextgen.player.subtitle.OnlineSubtitle
+import com.nextgen.player.subtitle.OpenSubtitlesClient
 import com.nextgen.player.subtitle.SubtitleCue
+import com.nextgen.player.subtitle.SubtitleDisplayConfig
+import com.nextgen.player.subtitle.SubtitleFileMatcher
+import com.nextgen.player.subtitle.SubtitleFormat
+import com.nextgen.player.subtitle.SubtitleParser
+import com.nextgen.player.subtitle.SubtitleSource
 import com.nextgen.player.subtitle.SubtitleSyncManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
+import java.io.ByteArrayInputStream
+import java.io.File
 import javax.inject.Inject
 
 enum class DoubleTapSide { NONE, LEFT, RIGHT }
 enum class RotationMode { AUTO, LANDSCAPE, PORTRAIT }
 enum class RepeatMode { OFF, ALL, ONE }
+
+data class PlayerSubtitleTrack(
+    val index: Int,
+    val name: String,
+    val language: String?,
+    val cues: List<SubtitleCue>,
+    val source: SubtitleSource,
+    val filePath: String?
+)
 
 data class PlayerUiState(
     val mediaInfo: MediaEntity? = null,
@@ -34,12 +54,26 @@ data class PlayerUiState(
     val showControls: Boolean = true,
     val isLocked: Boolean = false,
     val subtitleCues: List<SubtitleCue> = emptyList(),
+    val secondarySubtitleCues: List<SubtitleCue> = emptyList(),
+    val localSubtitleTracks: List<PlayerSubtitleTrack> = emptyList(),
+    val subtitleTrackInfoList: List<SubtitleTrackInfo> = emptyList(),
+    val primaryLocalSubtitleIndex: Int = -1,
+    val secondaryLocalSubtitleIndex: Int = -1,
+    val subtitleDisplayConfig: SubtitleDisplayConfig = SubtitleDisplayConfig(),
     val subtitleSyncOffsetMs: Long = 0L,
     val audioBoostLevel: Int = 100,
     val audioDelayMs: Long = 0L,
     val showSpeedSelector: Boolean = false,
     val showAudioTrackSelector: Boolean = false,
     val showSubtitleSelector: Boolean = false,
+    val showSubtitleStyleSheet: Boolean = false,
+    val showOnlineSubtitleDialog: Boolean = false,
+    val onlineSubtitleResults: List<OnlineSubtitle> = emptyList(),
+    val isSearchingSubtitles: Boolean = false,
+    val isDownloadingSubtitle: Boolean = false,
+    val subtitleMessage: String? = null,
+    val subtitleLanguage: String = "en",
+    val openSubtitlesApiKey: String = "",
     val showSyncSheet: Boolean = false,
     val brightnessLevel: Float = 0.5f,
     val volumeLevel: Float = 0.5f,
@@ -100,6 +134,7 @@ class PlayerViewModel @Inject constructor(
     val uiState: StateFlow<PlayerUiState> = _uiState.asStateFlow()
 
     private val subtitleSyncManager = SubtitleSyncManager()
+    private val openSubtitlesClient = OpenSubtitlesClient()
     private var controlsHideJob: Job? = null
     private var positionUpdateJob: Job? = null
 
@@ -143,7 +178,16 @@ class PlayerViewModel @Inject constructor(
                         nightFilterIntensity = settings.nightFilterIntensity,
                         doubleTapSeekDuration = settings.doubleTapSeekDuration,
                         swipeBrightnessEnabled = settings.swipeBrightnessEnabled,
-                        swipeVolumeEnabled = settings.swipeVolumeEnabled
+                        swipeVolumeEnabled = settings.swipeVolumeEnabled,
+                        subtitleLanguage = settings.subtitleLanguage,
+                        openSubtitlesApiKey = settings.openSubtitlesApiKey,
+                        subtitleDisplayConfig = SubtitleDisplayConfig(
+                            fontSize = settings.subtitleFontSize,
+                            fontColor = colorFromHex(settings.subtitleFontColorHex, Color.White),
+                            showBackground = settings.subtitleBackground,
+                            outlineWidth = if (settings.subtitleOutlineEnabled) 2f else 0f,
+                            shadowEnabled = settings.subtitleShadowEnabled
+                        )
                     )
                 }
             }
@@ -184,7 +228,13 @@ class PlayerViewModel @Inject constructor(
 
             // Fetch audio track info after a short delay for tracks to load
             delay(500)
-            _uiState.update { it.copy(audioTrackInfoList = playerEngine.getAudioTrackInfoList()) }
+            _uiState.update {
+                it.copy(
+                    audioTrackInfoList = playerEngine.getAudioTrackInfoList(),
+                    subtitleTrackInfoList = playerEngine.getSubtitleTrackInfoList()
+                )
+            }
+            refreshLocalSubtitles(mediaPath)
 
             playerEngine.player?.let { player ->
                 audioEngine.attachPlayer(player)
@@ -344,6 +394,69 @@ class PlayerViewModel @Inject constructor(
 
     fun selectSubtitleTrack(index: Int) {
         playerEngine.selectSubtitleTrack(index)
+        _uiState.update {
+            it.copy(
+                subtitleCues = emptyList(),
+                primaryLocalSubtitleIndex = -1,
+                subtitleMessage = null
+            )
+        }
+    }
+
+    fun selectPrimaryLocalSubtitle(index: Int) {
+        if (index < 0) {
+            _uiState.update {
+                it.copy(
+                    subtitleCues = emptyList(),
+                    primaryLocalSubtitleIndex = -1,
+                    subtitleMessage = null
+                )
+            }
+            return
+        }
+        val track = _uiState.value.localSubtitleTracks.firstOrNull { it.index == index } ?: return
+        playerEngine.selectSubtitleTrack(-1)
+        _uiState.update {
+            it.copy(
+                subtitleCues = track.cues,
+                primaryLocalSubtitleIndex = index,
+                subtitleMessage = null
+            )
+        }
+    }
+
+    fun selectSecondaryLocalSubtitle(index: Int) {
+        if (index < 0) {
+            _uiState.update {
+                it.copy(
+                    secondarySubtitleCues = emptyList(),
+                    secondaryLocalSubtitleIndex = -1,
+                    subtitleMessage = null
+                )
+            }
+            return
+        }
+        val track = _uiState.value.localSubtitleTracks.firstOrNull { it.index == index } ?: return
+        _uiState.update {
+            it.copy(
+                secondarySubtitleCues = track.cues,
+                secondaryLocalSubtitleIndex = index,
+                subtitleMessage = null
+            )
+        }
+    }
+
+    fun disableSubtitles() {
+        playerEngine.selectSubtitleTrack(-1)
+        _uiState.update {
+            it.copy(
+                subtitleCues = emptyList(),
+                secondarySubtitleCues = emptyList(),
+                primaryLocalSubtitleIndex = -1,
+                secondaryLocalSubtitleIndex = -1,
+                subtitleMessage = null
+            )
+        }
     }
 
     fun setAudioBoost(level: Int) {
@@ -475,6 +588,162 @@ class PlayerViewModel @Inject constructor(
         _uiState.update { it.copy(showSubtitleSelector = !it.showSubtitleSelector) }
     }
 
+    fun toggleSubtitleStyleSheet() {
+        _uiState.update { it.copy(showSubtitleStyleSheet = !it.showSubtitleStyleSheet) }
+    }
+
+    fun toggleOnlineSubtitleDialog() {
+        _uiState.update { it.copy(showOnlineSubtitleDialog = !it.showOnlineSubtitleDialog, subtitleMessage = null) }
+    }
+
+    fun setSubtitleFontSize(size: Float) {
+        _uiState.update {
+            it.copy(subtitleDisplayConfig = it.subtitleDisplayConfig.copy(fontSize = size.coerceIn(12f, 36f)))
+        }
+        viewModelScope.launch {
+            settingsRepository.updateSubtitleFontSize(size.coerceIn(12f, 36f))
+        }
+    }
+
+    fun setSubtitleBackground(enabled: Boolean) {
+        _uiState.update {
+            it.copy(subtitleDisplayConfig = it.subtitleDisplayConfig.copy(showBackground = enabled))
+        }
+        viewModelScope.launch {
+            settingsRepository.updateSubtitleBackground(enabled)
+        }
+    }
+
+    fun setSubtitleFontColor(hex: String) {
+        _uiState.update {
+            it.copy(subtitleDisplayConfig = it.subtitleDisplayConfig.copy(fontColor = colorFromHex(hex, Color.White)))
+        }
+        viewModelScope.launch {
+            settingsRepository.updateSubtitleFontColorHex(hex)
+        }
+    }
+
+    fun setSubtitleOutlineEnabled(enabled: Boolean) {
+        _uiState.update {
+            it.copy(subtitleDisplayConfig = it.subtitleDisplayConfig.copy(outlineWidth = if (enabled) 2f else 0f))
+        }
+        viewModelScope.launch {
+            settingsRepository.updateSubtitleOutlineEnabled(enabled)
+        }
+    }
+
+    fun setSubtitleShadowEnabled(enabled: Boolean) {
+        _uiState.update {
+            it.copy(subtitleDisplayConfig = it.subtitleDisplayConfig.copy(shadowEnabled = enabled))
+        }
+        viewModelScope.launch {
+            settingsRepository.updateSubtitleShadowEnabled(enabled)
+        }
+    }
+
+    fun searchOnlineSubtitles() {
+        val state = _uiState.value
+        val mediaPath = state.mediaInfo?.path ?: return
+        val apiKey = state.openSubtitlesApiKey
+        if (apiKey.isBlank()) {
+            _uiState.update { it.copy(subtitleMessage = "Add an OpenSubtitles API key in Settings first.") }
+            return
+        }
+
+        viewModelScope.launch {
+            _uiState.update {
+                it.copy(
+                    isSearchingSubtitles = true,
+                    onlineSubtitleResults = emptyList(),
+                    subtitleMessage = null
+                )
+            }
+            val result = withContext(Dispatchers.IO) {
+                openSubtitlesClient.search(
+                    apiKey = apiKey,
+                    request = SubtitleFileMatcher.buildSearchRequest(mediaPath, state.subtitleLanguage)
+                )
+            }
+            _uiState.update {
+                result.fold(
+                    onSuccess = { subtitles ->
+                        it.copy(
+                            isSearchingSubtitles = false,
+                            onlineSubtitleResults = subtitles,
+                            subtitleMessage = if (subtitles.isEmpty()) "No online subtitles found." else null
+                        )
+                    },
+                    onFailure = { error ->
+                        it.copy(
+                            isSearchingSubtitles = false,
+                            subtitleMessage = error.message ?: "Subtitle search failed."
+                        )
+                    }
+                )
+            }
+        }
+    }
+
+    fun downloadOnlineSubtitle(subtitle: OnlineSubtitle) {
+        val state = _uiState.value
+        val mediaPath = state.mediaInfo?.path ?: return
+        val apiKey = state.openSubtitlesApiKey
+        if (apiKey.isBlank()) {
+            _uiState.update { it.copy(subtitleMessage = "Add an OpenSubtitles API key in Settings first.") }
+            return
+        }
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(isDownloadingSubtitle = true, subtitleMessage = null) }
+            val result = withContext(Dispatchers.IO) {
+                openSubtitlesClient.download(apiKey, subtitle.fileId).mapCatching { bytes ->
+                    val target = SubtitleFileMatcher.targetSubtitleFile(mediaPath, subtitle.language.ifBlank { state.subtitleLanguage })
+                    target.parentFile?.mkdirs()
+                    target.outputStream().use { it.write(bytes) }
+                    val track = SubtitleParser.parse(
+                        ByteArrayInputStream(bytes),
+                        SubtitleFormat.SRT
+                    )
+                    target to track.cues
+                }
+            }
+
+            result.fold(
+                onSuccess = { (target, cues) ->
+                    val newTrack = PlayerSubtitleTrack(
+                        index = _uiState.value.localSubtitleTracks.size,
+                        name = target.name,
+                        language = subtitle.language,
+                        cues = cues,
+                        source = SubtitleSource.ONLINE,
+                        filePath = target.absolutePath
+                    )
+                    _uiState.update {
+                        val tracks = it.localSubtitleTracks + newTrack
+                        it.copy(
+                            isDownloadingSubtitle = false,
+                            localSubtitleTracks = tracks,
+                            subtitleCues = cues,
+                            primaryLocalSubtitleIndex = newTrack.index,
+                            onlineSubtitleResults = emptyList(),
+                            showOnlineSubtitleDialog = false,
+                            subtitleMessage = "Downloaded ${target.name}"
+                        )
+                    }
+                    playerEngine.selectSubtitleTrack(-1)
+                },
+                onFailure = { error ->
+                    _uiState.update {
+                        it.copy(
+                            isDownloadingSubtitle = false,
+                            subtitleMessage = error.message ?: "Subtitle download failed."
+                        )
+                    }
+                }
+            )
+        }
+    }
+
     fun toggleSyncSheet() {
         _uiState.update { it.copy(showSyncSheet = !it.showSyncSheet) }
     }
@@ -531,9 +800,24 @@ class PlayerViewModel @Inject constructor(
             _uiState.update { it.copy(currentQueueIndex = nextIndex, mediaInfo = nextMedia, showResumePrompt = false) }
             playerEngine.prepare(Uri.parse(nextMedia.path), 0L)
             playerEngine.play()
+            _uiState.update {
+                it.copy(
+                    subtitleCues = emptyList(),
+                    secondarySubtitleCues = emptyList(),
+                    primaryLocalSubtitleIndex = -1,
+                    secondaryLocalSubtitleIndex = -1,
+                    localSubtitleTracks = emptyList()
+                )
+            }
             viewModelScope.launch {
                 delay(500)
-                _uiState.update { it.copy(audioTrackInfoList = playerEngine.getAudioTrackInfoList()) }
+                _uiState.update {
+                    it.copy(
+                        audioTrackInfoList = playerEngine.getAudioTrackInfoList(),
+                        subtitleTrackInfoList = playerEngine.getSubtitleTrackInfoList()
+                    )
+                }
+                refreshLocalSubtitles(nextMedia.path)
                 playerEngine.player?.let { player ->
                     audioEngine.initLoudnessEnhancer(player.audioSessionId)
                     equalizerEngine.initialize(player.audioSessionId)
@@ -552,9 +836,24 @@ class PlayerViewModel @Inject constructor(
             _uiState.update { it.copy(currentQueueIndex = prevIndex, mediaInfo = prevMedia, showResumePrompt = false) }
             playerEngine.prepare(Uri.parse(prevMedia.path), 0L)
             playerEngine.play()
+            _uiState.update {
+                it.copy(
+                    subtitleCues = emptyList(),
+                    secondarySubtitleCues = emptyList(),
+                    primaryLocalSubtitleIndex = -1,
+                    secondaryLocalSubtitleIndex = -1,
+                    localSubtitleTracks = emptyList()
+                )
+            }
             viewModelScope.launch {
                 delay(500)
-                _uiState.update { it.copy(audioTrackInfoList = playerEngine.getAudioTrackInfoList()) }
+                _uiState.update {
+                    it.copy(
+                        audioTrackInfoList = playerEngine.getAudioTrackInfoList(),
+                        subtitleTrackInfoList = playerEngine.getSubtitleTrackInfoList()
+                    )
+                }
+                refreshLocalSubtitles(prevMedia.path)
                 playerEngine.player?.let { player ->
                     audioEngine.initLoudnessEnhancer(player.audioSessionId)
                     equalizerEngine.initialize(player.audioSessionId)
@@ -706,6 +1005,72 @@ class PlayerViewModel @Inject constructor(
         }
         _uiState.update { it.copy(repeatMode = next) }
         return next
+    }
+
+    private fun refreshLocalSubtitles(mediaPath: String) {
+        viewModelScope.launch {
+            val tracks = withContext(Dispatchers.IO) {
+                discoverLocalSubtitleTracks(mediaPath)
+            }
+            _uiState.update { state ->
+                val firstTrack = tracks.firstOrNull()
+                state.copy(
+                    localSubtitleTracks = tracks,
+                    subtitleCues = if (state.primaryLocalSubtitleIndex < 0 && state.playerState.currentSubtitleTrack < 0) {
+                        firstTrack?.cues.orEmpty()
+                    } else {
+                        state.subtitleCues
+                    },
+                    primaryLocalSubtitleIndex = if (state.primaryLocalSubtitleIndex < 0 && state.playerState.currentSubtitleTrack < 0) {
+                        firstTrack?.index ?: -1
+                    } else {
+                        state.primaryLocalSubtitleIndex
+                    },
+                    secondarySubtitleCues = emptyList(),
+                    secondaryLocalSubtitleIndex = -1
+                )
+            }
+        }
+    }
+
+    private fun discoverLocalSubtitleTracks(mediaPath: String): List<PlayerSubtitleTrack> {
+        val videoFile = File(mediaPath)
+        val parent = videoFile.parentFile ?: return emptyList()
+        val baseName = videoFile.name.substringBeforeLast('.', videoFile.name)
+        val subtitleExtensions = setOf("srt", "vtt", "ass", "ssa", "sub")
+        return parent.listFiles()
+            ?.filter { file ->
+                file.isFile &&
+                    file.extension.lowercase() in subtitleExtensions &&
+                    file.nameWithoutExtension.startsWith(baseName, ignoreCase = true)
+            }
+            ?.sortedBy { it.name.lowercase() }
+            ?.mapIndexedNotNull { index, file ->
+                runCatching {
+                    val format = SubtitleParser.detectFormat(file.name)
+                    val track = file.inputStream().use { SubtitleParser.parse(it, format) }
+                    PlayerSubtitleTrack(
+                        index = index,
+                        name = file.name,
+                        language = inferSubtitleLanguage(file.nameWithoutExtension.removePrefix(baseName).trim('.', '-', '_')),
+                        cues = track.cues,
+                        source = SubtitleSource.EXTERNAL,
+                        filePath = file.absolutePath
+                    )
+                }.getOrNull()
+            }
+            .orEmpty()
+    }
+
+    private fun inferSubtitleLanguage(raw: String): String? {
+        return raw.takeIf { it.length in 2..8 }?.lowercase()
+    }
+
+    private fun colorFromHex(hex: String, fallback: Color): Color {
+        return runCatching {
+            val normalized = hex.removePrefix("#")
+            Color(normalized.toLong(16))
+        }.getOrElse { fallback }
     }
 
     override fun onCleared() {

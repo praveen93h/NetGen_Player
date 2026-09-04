@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -14,8 +16,16 @@ android {
         applicationId = "com.nextgen.player"
         minSdk = 24
         targetSdk = 35
-        versionCode = 7
-        versionName = "1.5.0"
+        versionCode = 8
+        versionName = "1.6.0"
+        
+        val properties = Properties()
+        val localProperties = project.rootProject.file("local.properties")
+        if (localProperties.exists()) {
+            properties.load(localProperties.inputStream())
+        }
+        val openSubtitlesApiKey = properties.getProperty("open_subtitles_api_key", "")
+        buildConfigField("String", "OPEN_SUBTITLES_API_KEY", "\"$openSubtitlesApiKey\"")
     }
 
     signingConfigs {
@@ -50,6 +60,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
     packaging {

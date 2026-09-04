@@ -1,10 +1,10 @@
 # NextGen Media Player
 
-A modern, ad-free, high-performance media player for Android — built with Kotlin, Jetpack Compose, and Media3/ExoPlayer.
+A modern, ad-free, high-performance media player for Android - built with Kotlin, Jetpack Compose, and Media3/ExoPlayer.
 
 [![Platform](https://img.shields.io/badge/Platform-Android-green.svg)]()
 [![Min SDK](https://img.shields.io/badge/Min%20SDK-24-blue.svg)]()
-[![Version](https://img.shields.io/badge/Version-1.5.0-orange.svg)]()
+[![Version](https://img.shields.io/badge/Version-1.6.0-orange.svg)]()
 
 ---
 
@@ -24,7 +24,7 @@ A modern, ad-free, high-performance media player for Android — built with Kotl
 
 ## Screenshots
 
-> *Coming soon*
+> Coming soon
 
 ---
 
@@ -32,8 +32,8 @@ A modern, ad-free, high-performance media player for Android — built with Kotl
 
 ### Playback
 - Supports **MP4, MKV, AVI, MOV, FLV, WebM, TS**
-- 4K & HDR playback with hardware acceleration
-- Variable speed playback (0.25x – 4x)
+- 4K and HDR playback with hardware acceleration
+- Variable speed playback (0.25x - 4x)
 - A-B repeat for looping sections
 - Picture-in-Picture (PiP) mode
 - Resume playback from where you left off
@@ -42,7 +42,7 @@ A modern, ad-free, high-performance media player for Android — built with Kotl
 
 ### Audio
 - 10-band graphic equalizer with presets (Flat, Bass Boost, Vocal, Cinema, Rock, Pop, Jazz, Classical, etc.)
-- Bass boost & virtualizer effects
+- Bass boost and virtualizer effects
 - Audio boost up to 300%
 - Audio delay sync adjustment
 - Multi-audio track selection
@@ -54,12 +54,15 @@ A modern, ad-free, high-performance media player for Android — built with Kotl
 - Screen lock to prevent accidental touches
 
 ### Subtitles
-- Subtitle support (SRT, ASS, SSA, SUB)
-- Subtitle sync adjustment
-- Styled rendering with color, outline, shadow
+- Subtitle support for **SRT, ASS, SSA, and SUB**
+- Online subtitle discovery and download workflow
+- Subtitle sync adjustment with fine-grained timing controls
+- Subtitle customization for font size, background, color, outline, and shadow
+- Dual subtitle workflow for primary and secondary captions
+- Styled rendering with positioning and timing preservation
 
 ### Gestures
-- Swipe for brightness & volume control (individually toggleable)
+- Swipe for brightness and volume control (individually toggleable)
 - Horizontal swipe to seek
 - Pinch to zoom
 - Double-tap to skip forward/backward (configurable: 5/10/15/20/30s)
@@ -70,7 +73,7 @@ A modern, ad-free, high-performance media player for Android — built with Kotl
 - Browse **FTP** and **SFTP** servers
 - Browse **WebDAV** servers
 - **DLNA/UPnP** device discovery and content browsing
-- **URL streaming** — HTTP, HTTPS, RTSP, HLS, DASH
+- **URL streaming** - HTTP, HTTPS, RTSP, HLS, DASH
 - **M3U/M3U8** playlist parsing
 - Server bookmarks with connection management
 - Recent URL history
@@ -78,10 +81,10 @@ A modern, ad-free, high-performance media player for Android — built with Kotl
 ### Library
 - Browse by folders, recent files, favorites
 - **Continue Watching** section with progress indicators
-- **Favorites** — tap heart icon on any media card
-- **Batch operations** — long-press to select, select all, batch delete
+- **Favorites** - tap the heart icon on any media card
+- **Batch operations** - long-press to select, select all, batch delete
 - Play All from folder
-- Playback queue with shuffle & repeat modes (Off / All / One)
+- Playback queue with shuffle and repeat modes (Off / All / One)
 - Auto-play next video in folder
 
 ### Appearance
@@ -91,7 +94,7 @@ A modern, ad-free, high-performance media player for Android — built with Kotl
 
 ### Floating Video
 - Pop-up overlay mini-player (Picture-outside-Picture)
-- Draggable window with play/pause & close controls
+- Draggable window with play/pause and close controls
 
 ### Privacy
 - 100% ad-free, no trackers, no analytics
@@ -103,14 +106,14 @@ A modern, ad-free, high-performance media player for Android — built with Kotl
 
 Multi-module MVVM / Clean Architecture:
 
-```
-app/                  → Main app, navigation, ViewModels, UI screens
-core-player/          → PlayerEngine, AudioEngine, EqualizerEngine, GestureController
-core-ui/              → Theme, colors, typography, shared components
-data-local/           → Room database, DAOs, MediaScanner, repositories
-feature-library/      → Library browsing UI (folders, recent, search)
-feature-network/      → Network browsing (SMB/FTP/SFTP/WebDAV/DLNA), URL streaming
-feature-subtitle/     → Subtitle parsing (SRT/ASS/SSA), rendering, sync
+```text
+app/                  -> Main app, navigation, ViewModels, UI screens
+core-player/          -> PlayerEngine, AudioEngine, EqualizerEngine, GestureController
+core-ui/              -> Theme, colors, typography, shared components
+data-local/           -> Room database, DAOs, MediaScanner, repositories
+feature-library/      -> Library browsing UI (folders, recent, search)
+feature-network/      -> Network browsing (SMB/FTP/SFTP/WebDAV/DLNA), URL streaming
+feature-subtitle/     -> Subtitle parsing, rendering, sync, styling, dual subtitle workflows
 ```
 
 ---
@@ -118,7 +121,7 @@ feature-subtitle/     → Subtitle parsing (SRT/ASS/SSA), rendering, sync
 ## Tech Stack
 
 | Layer | Technology |
-|-------|-----------|
+|-------|------------|
 | Language | **Kotlin** |
 | UI | **Jetpack Compose** + **Material 3** |
 | Playback | **Media3 / ExoPlayer** |
@@ -133,69 +136,70 @@ feature-subtitle/     → Subtitle parsing (SRT/ASS/SSA), rendering, sync
 
 ## Project Structure
 
-```
+```text
 MediaPlayer/
-├── app/                          # Main application module
-│   └── src/main/
-│       ├── java/.../player/
-│       │   ├── MainActivity.kt        # Entry point
-│       │   ├── PlayerActivity.kt      # Player host activity
-│       │   ├── ui/
-│       │   │   ├── PlayerScreen.kt    # Player composable with controls
-│       │   │   ├── PlayerViewModel.kt # Player state management
-│       │   │   ├── SettingsScreen.kt  # App settings
-│       │   │   └── SettingsViewModel.kt
-│       │   ├── navigation/NavGraph.kt
-│       │   ├── service/
-│       │   │   ├── PlaybackService.kt
-│       │   │   └── FloatingVideoService.kt  # Overlay mini-player
-│       │   └── di/AppModule.kt
-│       └── res/
-├── core-player/                  # Playback engine module
-│   └── src/main/java/.../player/
-│       ├── PlayerEngine.kt            # ExoPlayer wrapper
-│       ├── VideoFilterState.kt        # Color matrix filters
-│       ├── audio/
-│       │   ├── AudioEngine.kt         # Audio boost & delay
-│       │   └── EqualizerEngine.kt     # 10-band EQ, bass boost, virtualizer
-│       ├── gesture/GestureController.kt
-│       └── di/PlayerModule.kt
-├── core-ui/                      # Shared design system
-│   └── src/main/java/.../ui/
-│       ├── theme/ (Color, Theme, Type)
-│       └── components/PlayerIcons.kt
-├── data-local/                   # Local data layer
-│   └── src/main/java/.../data/local/
-│       ├── AppDatabase.kt
-│       ├── dao/, entity/, repository/
-│       └── scanner/
-├── feature-library/              # Media library UI
-│   └── src/main/java/.../library/
-│       ├── ui/ (LibraryScreen, FolderScreen, etc.)
-│       └── viewmodel/
-├── feature-network/              # Network streaming module
-│   └── src/main/java/.../network/
-│       ├── client/
-│       │   ├── SmbClient.kt           # SMB2/3 browsing via smbj
-│       │   ├── FtpClient.kt           # FTP browsing via Commons Net
-│       │   ├── SftpClient.kt          # SFTP browsing via JSch
-│       │   ├── WebDavClient.kt        # WebDAV via OkHttp PROPFIND
-│       │   └── DlnaClient.kt          # SSDP discovery + SOAP browsing
-│       ├── datasource/
-│       │   ├── SmbDataSource.kt       # ExoPlayer SMB DataSource
-│       │   └── FtpDataSource.kt       # ExoPlayer FTP DataSource
-│       ├── parser/M3uParser.kt        # M3U/M3U8 playlist parser
-│       ├── model/NetworkModels.kt
-│       ├── ui/ (NetworkScreen, ServerBrowserScreen, dialogs)
-│       ├── viewmodel/NetworkViewModel.kt
-│       └── di/NetworkModule.kt
-├── feature-subtitle/             # Subtitle engine
-│   └── src/main/java/.../subtitle/
-│       ├── SubtitleParser.kt
-│       ├── SubtitleRenderer.kt
-│       └── SubtitleSyncManager.kt
-└── gradle/
-    └── libs.versions.toml        # Version catalog
+|-- app/                          # Main application module
+|   `-- src/main/
+|       |-- java/.../player/
+|       |   |-- MainActivity.kt        # Entry point
+|       |   |-- PlayerActivity.kt      # Player host activity
+|       |   |-- ui/
+|       |   |   |-- PlayerScreen.kt    # Player composable with controls
+|       |   |   |-- PlayerViewModel.kt # Player state management
+|       |   |   |-- SettingsScreen.kt  # App settings
+|       |   |   `-- SettingsViewModel.kt
+|       |   |-- navigation/NavGraph.kt
+|       |   |-- service/
+|       |   |   |-- PlaybackService.kt
+|       |   |   `-- FloatingVideoService.kt  # Overlay mini-player
+|       |   `-- di/AppModule.kt
+|       `-- res/
+|-- core-player/                  # Playback engine module
+|   `-- src/main/java/.../player/
+|       |-- PlayerEngine.kt            # ExoPlayer wrapper
+|       |-- VideoFilterState.kt        # Color matrix filters
+|       |-- audio/
+|       |   |-- AudioEngine.kt         # Audio boost and delay
+|       |   `-- EqualizerEngine.kt     # 10-band EQ, bass boost, virtualizer
+|       |-- gesture/GestureController.kt
+|       `-- di/PlayerModule.kt
+|-- core-ui/                      # Shared design system
+|   `-- src/main/java/.../ui/
+|       |-- theme/ (Color, Theme, Type)
+|       `-- components/PlayerIcons.kt
+|-- data-local/                   # Local data layer
+|   `-- src/main/java/.../data/local/
+|       |-- AppDatabase.kt
+|       |-- dao/, entity/, repository/
+|       `-- scanner/
+|-- feature-library/              # Media library UI
+|   `-- src/main/java/.../library/
+|       |-- ui/ (LibraryScreen, FolderScreen, etc.)
+|       `-- viewmodel/
+|-- feature-network/              # Network streaming module
+|   `-- src/main/java/.../network/
+|       |-- client/
+|       |   |-- SmbClient.kt           # SMB2/3 browsing via smbj
+|       |   |-- FtpClient.kt           # FTP browsing via Commons Net
+|       |   |-- SftpClient.kt          # SFTP browsing via JSch
+|       |   |-- WebDavClient.kt        # WebDAV via OkHttp PROPFIND
+|       |   `-- DlnaClient.kt          # SSDP discovery + SOAP browsing
+|       |-- datasource/
+|       |   |-- SmbDataSource.kt       # ExoPlayer SMB DataSource
+|       |   `-- FtpDataSource.kt       # ExoPlayer FTP DataSource
+|       |-- parser/M3uParser.kt        # M3U/M3U8 playlist parser
+|       |-- model/NetworkModels.kt
+|       |-- ui/ (NetworkScreen, ServerBrowserScreen, dialogs)
+|       |-- viewmodel/NetworkViewModel.kt
+|       `-- di/NetworkModule.kt
+|-- feature-subtitle/             # Subtitle powerhouse
+|   `-- src/main/java/.../subtitle/
+|       |-- SubtitleModels.kt
+|       |-- SubtitleParser.kt
+|       |-- SubtitleRenderer.kt
+|       `-- SubtitleSyncManager.kt
+`-- gradle/
+    `-- libs.versions.toml        # Version catalog
 ```
 
 ---
@@ -211,6 +215,7 @@ MediaPlayer/
 ```bash
 ./gradlew assembleDebug
 ```
+
 APK output: `app/build/outputs/apk/debug/app-debug.apk`
 
 ### Release Build
@@ -224,13 +229,13 @@ APK output: `app/build/outputs/apk/debug/app-debug.apk`
 
 | Version | Status | Focus |
 |---------|--------|-------|
-| v1.0 | ✅ Done | Core playback, subtitles, gestures, library |
-| v1.1 | ✅ Done | Background playback, audio sync, string resources |
-| v1.2 | ✅ Done | PiP, resume playback, rotation lock, night filter, screen lock, queue |
-| v1.3 | ✅ Done | Equalizer, video filters, shuffle/repeat, skip silence |
-| v1.4 | ✅ Done | Network streaming (SMB/FTP/SFTP/WebDAV), URL playback, DLNA/UPnP |
-| v1.5 | ✅ Done | Material You, custom gestures, floating video, favorites, batch operations |
-| v1.6 | Planned | Online subtitle download, subtitle customization, dual subtitles |
+| v1.0 | Done | Core playback, subtitles, gestures, library |
+| v1.1 | Done | Background playback, audio sync, string resources |
+| v1.2 | Done | PiP, resume playback, rotation lock, night filter, screen lock, queue |
+| v1.3 | Done | Equalizer, video filters, shuffle/repeat, skip silence |
+| v1.4 | Done | Network streaming (SMB/FTP/SFTP/WebDAV), URL playback, DLNA/UPnP |
+| v1.5 | Done | Material You, custom gestures, floating video, favorites, batch operations |
+| v1.6 | Done | Subtitle Powerhouse: online subtitle download, subtitle customization, dual subtitles |
 | v1.7 | Planned | FFmpeg fallback, HDR/Dolby Vision, decoder reporting |
 | v1.8 | Planned | Smart auto-brightness, video bookmarks, frame-by-frame, audio-only mode |
 | v1.9 | Planned | Android TV support, tablet layout, Wear OS remote |
@@ -245,4 +250,4 @@ See [CHANGELOG.md](CHANGELOG.md) for a detailed version history.
 
 ## License
 
-Proprietary – All rights reserved.
+Proprietary - All rights reserved.

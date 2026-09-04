@@ -15,17 +15,57 @@ data class SubtitleStyle(
     val fontSize: Float? = null,
     val primaryColor: Long? = null,
     val outlineColor: Long? = null,
+    val shadowColor: Long? = null,
     val backgroundColor: Long? = null,
-    val alignment: Int = 2
+    val alignment: Int = 2,
+    val outlineWidth: Float = 0f,
+    val shadowEnabled: Boolean = false
 )
 
 data class SubtitleTrack(
     val name: String,
     val language: String?,
     val cues: List<SubtitleCue>,
-    val format: SubtitleFormat
+    val format: SubtitleFormat,
+    val source: SubtitleSource = SubtitleSource.EXTERNAL,
+    val filePath: String? = null
 )
 
 enum class SubtitleFormat {
-    SRT, ASS, SSA, SUB, UNKNOWN
+    SRT, ASS, SSA, SUB, VTT, PGS, UNKNOWN
 }
+
+enum class SubtitleSource {
+    EMBEDDED, EXTERNAL, ONLINE
+}
+
+enum class SubtitleVerticalPosition {
+    TOP, BOTTOM, CUSTOM
+}
+
+data class OnlineSubtitle(
+    val id: String,
+    val fileId: Int,
+    val language: String,
+    val languageName: String,
+    val releaseName: String,
+    val fileName: String,
+    val downloadCount: Int,
+    val ratings: Float,
+    val fps: Float?,
+    val hearingImpaired: Boolean,
+    val fromTrusted: Boolean
+) {
+    val displayName: String
+        get() = buildString {
+            append(if (releaseName.isNotBlank()) releaseName else fileName.ifBlank { "Subtitle $fileId" })
+            if (languageName.isNotBlank()) append(" - ").append(languageName)
+        }
+}
+
+data class SubtitleSearchRequest(
+    val videoPath: String,
+    val fileName: String,
+    val language: String,
+    val movieHash: String? = null
+)

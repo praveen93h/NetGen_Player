@@ -10,7 +10,10 @@ import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
 
+import com.nextgen.player.BuildConfig
+
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
+private val DEFAULT_OPEN_SUBTITLES_API_KEY = BuildConfig.OPEN_SUBTITLES_API_KEY
 
 data class AppSettings(
     val defaultSpeed: Float = 1.0f,
@@ -18,6 +21,11 @@ data class AppSettings(
     val hardwareDecoding: Boolean = true,
     val subtitleFontSize: Float = 18f,
     val subtitleBackground: Boolean = true,
+    val subtitleFontColorHex: String = "FFFFFFFF",
+    val subtitleOutlineEnabled: Boolean = true,
+    val subtitleShadowEnabled: Boolean = true,
+    val subtitleLanguage: String = "en",
+    val openSubtitlesApiKey: String = DEFAULT_OPEN_SUBTITLES_API_KEY,
     val darkTheme: Boolean = true,
     val autoPiP: Boolean = true,
     val autoPlayNext: Boolean = true,
@@ -43,6 +51,11 @@ class SettingsRepository @Inject constructor(
         val HARDWARE_DECODING = booleanPreferencesKey("hardware_decoding")
         val SUBTITLE_FONT_SIZE = floatPreferencesKey("subtitle_font_size")
         val SUBTITLE_BACKGROUND = booleanPreferencesKey("subtitle_background")
+        val SUBTITLE_FONT_COLOR_HEX = stringPreferencesKey("subtitle_font_color_hex")
+        val SUBTITLE_OUTLINE_ENABLED = booleanPreferencesKey("subtitle_outline_enabled")
+        val SUBTITLE_SHADOW_ENABLED = booleanPreferencesKey("subtitle_shadow_enabled")
+        val SUBTITLE_LANGUAGE = stringPreferencesKey("subtitle_language")
+        val OPEN_SUBTITLES_API_KEY = stringPreferencesKey("open_subtitles_api_key")
         val DARK_THEME = booleanPreferencesKey("dark_theme")
         val AUTO_PIP = booleanPreferencesKey("auto_pip")
         val AUTO_PLAY_NEXT = booleanPreferencesKey("auto_play_next")
@@ -63,6 +76,11 @@ class SettingsRepository @Inject constructor(
             hardwareDecoding = prefs[Keys.HARDWARE_DECODING] ?: true,
             subtitleFontSize = prefs[Keys.SUBTITLE_FONT_SIZE] ?: 18f,
             subtitleBackground = prefs[Keys.SUBTITLE_BACKGROUND] ?: true,
+            subtitleFontColorHex = prefs[Keys.SUBTITLE_FONT_COLOR_HEX] ?: "FFFFFFFF",
+            subtitleOutlineEnabled = prefs[Keys.SUBTITLE_OUTLINE_ENABLED] ?: true,
+            subtitleShadowEnabled = prefs[Keys.SUBTITLE_SHADOW_ENABLED] ?: true,
+            subtitleLanguage = prefs[Keys.SUBTITLE_LANGUAGE] ?: "en",
+            openSubtitlesApiKey = prefs[Keys.OPEN_SUBTITLES_API_KEY] ?: DEFAULT_OPEN_SUBTITLES_API_KEY,
             darkTheme = prefs[Keys.DARK_THEME] ?: true,
             autoPiP = prefs[Keys.AUTO_PIP] ?: true,
             autoPlayNext = prefs[Keys.AUTO_PLAY_NEXT] ?: true,
@@ -99,6 +117,26 @@ class SettingsRepository @Inject constructor(
 
     suspend fun updateSubtitleBackground(enabled: Boolean) {
         context.dataStore.edit { it[Keys.SUBTITLE_BACKGROUND] = enabled }
+    }
+
+    suspend fun updateSubtitleFontColorHex(hex: String) {
+        context.dataStore.edit { it[Keys.SUBTITLE_FONT_COLOR_HEX] = hex }
+    }
+
+    suspend fun updateSubtitleOutlineEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[Keys.SUBTITLE_OUTLINE_ENABLED] = enabled }
+    }
+
+    suspend fun updateSubtitleShadowEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[Keys.SUBTITLE_SHADOW_ENABLED] = enabled }
+    }
+
+    suspend fun updateSubtitleLanguage(language: String) {
+        context.dataStore.edit { it[Keys.SUBTITLE_LANGUAGE] = language }
+    }
+
+    suspend fun updateOpenSubtitlesApiKey(apiKey: String) {
+        context.dataStore.edit { it[Keys.OPEN_SUBTITLES_API_KEY] = apiKey }
     }
 
     suspend fun updateDarkTheme(enabled: Boolean) {

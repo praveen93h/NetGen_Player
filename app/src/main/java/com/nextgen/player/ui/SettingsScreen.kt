@@ -34,6 +34,9 @@ fun SettingsScreen(
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     var showSpeedPicker by remember { mutableStateOf(false) }
     var showFontSizePicker by remember { mutableStateOf(false) }
+    var showSubtitleColorPicker by remember { mutableStateOf(false) }
+    var showSubtitleLanguageDialog by remember { mutableStateOf(false) }
+    var showOpenSubtitlesKeyDialog by remember { mutableStateOf(false) }
     var showThemePicker by remember { mutableStateOf(false) }
     var showAccentPicker by remember { mutableStateOf(false) }
     var showDoubleTapPicker by remember { mutableStateOf(false) }
@@ -116,6 +119,46 @@ fun SettingsScreen(
                     icon = Icons.Rounded.FormatColorFill,
                     checked = settings.subtitleBackground,
                     onCheckedChange = { viewModel.setSubtitleBackground(it) }
+                )
+
+                ClickSetting(
+                    title = stringResource(R.string.settings_subtitle_color),
+                    subtitle = subtitleColorName(settings.subtitleFontColorHex),
+                    icon = Icons.Rounded.FormatColorText,
+                    onClick = { showSubtitleColorPicker = true }
+                )
+
+                SwitchSetting(
+                    title = stringResource(R.string.settings_subtitle_outline),
+                    subtitle = stringResource(R.string.settings_subtitle_outline_desc),
+                    icon = Icons.Rounded.BorderColor,
+                    checked = settings.subtitleOutlineEnabled,
+                    onCheckedChange = { viewModel.setSubtitleOutlineEnabled(it) }
+                )
+
+                SwitchSetting(
+                    title = stringResource(R.string.settings_subtitle_shadow),
+                    subtitle = stringResource(R.string.settings_subtitle_shadow_desc),
+                    icon = Icons.Rounded.Layers,
+                    checked = settings.subtitleShadowEnabled,
+                    onCheckedChange = { viewModel.setSubtitleShadowEnabled(it) }
+                )
+
+                ClickSetting(
+                    title = stringResource(R.string.settings_subtitle_language),
+                    subtitle = settings.subtitleLanguage,
+                    icon = Icons.Rounded.Translate,
+                    onClick = { showSubtitleLanguageDialog = true }
+                )
+
+                ClickSetting(
+                    title = stringResource(R.string.settings_opensubtitles_api_key),
+                    subtitle = if (settings.openSubtitlesApiKey.isBlank())
+                        stringResource(R.string.settings_opensubtitles_api_key_desc)
+                    else
+                        "Configured",
+                    icon = Icons.Rounded.Key,
+                    onClick = { showOpenSubtitlesKeyDialog = true }
                 )
             }
 
@@ -223,6 +266,39 @@ fun SettingsScreen(
         )
     }
 
+    if (showSubtitleColorPicker) {
+        SubtitleColorPickerDialog(
+            currentHex = settings.subtitleFontColorHex,
+            onColorSelected = {
+                viewModel.setSubtitleFontColorHex(it)
+                showSubtitleColorPicker = false
+            },
+            onDismiss = { showSubtitleColorPicker = false }
+        )
+    }
+
+    if (showSubtitleLanguageDialog) {
+        SubtitleLanguageDialog(
+            currentLanguage = settings.subtitleLanguage,
+            onLanguageSelected = {
+                viewModel.setSubtitleLanguage(it)
+                showSubtitleLanguageDialog = false
+            },
+            onDismiss = { showSubtitleLanguageDialog = false }
+        )
+    }
+
+    if (showOpenSubtitlesKeyDialog) {
+        OpenSubtitlesKeyDialog(
+            currentKey = settings.openSubtitlesApiKey,
+            onSave = {
+                viewModel.setOpenSubtitlesApiKey(it)
+                showOpenSubtitlesKeyDialog = false
+            },
+            onDismiss = { showOpenSubtitlesKeyDialog = false }
+        )
+    }
+
     if (showThemePicker) {
         ThemePickerDialog(
             currentMode = settings.themeMode,
@@ -265,6 +341,15 @@ private fun themeDisplayName(mode: String): String = when (mode.lowercase()) {
     "light" -> stringResource(R.string.theme_light)
     "system" -> stringResource(R.string.theme_system)
     else -> stringResource(R.string.theme_dark)
+}
+
+private fun subtitleColorName(hex: String): String = when (hex.uppercase()) {
+    "FFFFFFFF" -> "White"
+    "FFFFFF00" -> "Yellow"
+    "FF00E5FF" -> "Cyan"
+    "FFFFAB40" -> "Orange"
+    "FF69F0AE" -> "Green"
+    else -> "Custom"
 }
 
 @Composable
@@ -325,6 +410,135 @@ private val accentColors = listOf(
     "FFFF9800" to "Orange",
     "FF607D8B" to "Blue Grey"
 )
+
+private val subtitleColors = listOf(
+    "FFFFFFFF" to "White",
+    "FFFFFF00" to "Yellow",
+    "FF00E5FF" to "Cyan",
+    "FFFFAB40" to "Orange",
+    "FF69F0AE" to "Green"
+)
+
+@Composable
+private fun SubtitleColorPickerDialog(
+    currentHex: String,
+    onColorSelected: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.settings_subtitle_color)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                subtitleColors.forEach { (hex, name) ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onColorSelected(hex) }
+                            .padding(vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        RadioButton(
+                            selected = currentHex.equals(hex, ignoreCase = true),
+                            onClick = { onColorSelected(hex) }
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Box(
+                            modifier = Modifier
+                                .size(24.dp)
+                                .clip(CircleShape)
+                                .background(Color(hex.toLong(16)))
+                                .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape)
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(name)
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) }
+        }
+    )
+}
+
+@Composable
+private fun SubtitleLanguageDialog(
+    currentLanguage: String,
+    onLanguageSelected: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val languages = listOf(
+        "en" to "English",
+        "es" to "Spanish",
+        "fr" to "French",
+        "de" to "German",
+        "hi" to "Hindi",
+        "ja" to "Japanese"
+    )
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.settings_subtitle_language)) },
+        text = {
+            Column {
+                languages.forEach { (code, name) ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onLanguageSelected(code) }
+                            .padding(vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        RadioButton(
+                            selected = currentLanguage.equals(code, ignoreCase = true),
+                            onClick = { onLanguageSelected(code) }
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            "$name ($code)",
+                            fontWeight = if (currentLanguage.equals(code, ignoreCase = true)) FontWeight.Bold else FontWeight.Normal
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) }
+        }
+    )
+}
+
+@Composable
+private fun OpenSubtitlesKeyDialog(
+    currentKey: String,
+    onSave: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var apiKey by remember(currentKey) { mutableStateOf(currentKey) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.settings_opensubtitles_api_key)) },
+        text = {
+            OutlinedTextField(
+                value = apiKey,
+                onValueChange = { apiKey = it },
+                singleLine = true,
+                label = { Text(stringResource(R.string.settings_opensubtitles_api_key)) },
+                modifier = Modifier.fillMaxWidth()
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = { onSave(apiKey.trim()) }) {
+                Text(stringResource(R.string.action_save))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) }
+        }
+    )
+}
 
 @Composable
 private fun AccentColorPickerDialog(

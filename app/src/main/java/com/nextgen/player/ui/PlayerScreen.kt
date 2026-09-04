@@ -3,6 +3,7 @@ package com.nextgen.player.ui
 import androidx.annotation.OptIn
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -11,6 +12,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.VolumeDown
@@ -45,11 +47,19 @@ import android.app.Activity
 import android.content.pm.ActivityInfo
 import com.nextgen.player.player.AudioTrackInfo
 import com.nextgen.player.player.PlayerEngine
+import com.nextgen.player.player.PlayerState
+import com.nextgen.player.player.SubtitleTrackInfo
 import com.nextgen.player.player.VideoFilterState
 import com.nextgen.player.player.gesture.GestureZoneType
 import com.nextgen.player.player.audio.EqPreset
 import com.nextgen.player.player.audio.EqualizerEngine
+import com.nextgen.player.subtitle.OnlineSubtitle
+import com.nextgen.player.subtitle.SubtitleDisplayConfig
 import com.nextgen.player.subtitle.SubtitleOverlay
+import com.nextgen.player.subtitle.SubtitleVerticalPosition
+import com.nextgen.player.ui.components.GuidedDemoDialog
+import com.nextgen.player.ui.components.GuidedDemoStep
+import com.nextgen.player.ui.components.GuidedDemoSurface
 import com.nextgen.player.ui.theme.Orange500
 import com.nextgen.player.R
 import kotlin.math.abs
@@ -74,6 +84,7 @@ fun PlayerScreen(
     val screenHeightDp = LocalConfiguration.current.screenHeightDp
     val context = LocalContext.current
     val activity = context as? Activity
+    var showPlayerDemo by remember { mutableStateOf(false) }
 
     LaunchedEffect(mediaId) {
         viewModel.initialize(mediaId, mediaPath, folderPath)
@@ -120,6 +131,22 @@ fun PlayerScreen(
                 currentPositionMs = playerState.currentPosition,
                 cues = uiState.subtitleCues,
                 syncOffsetMs = uiState.subtitleSyncOffsetMs,
+                config = uiState.subtitleDisplayConfig,
+                modifier = Modifier.fillMaxSize()
+            )
+        }
+
+        if (uiState.secondarySubtitleCues.isNotEmpty()) {
+            SubtitleOverlay(
+                currentPositionMs = playerState.currentPosition,
+                cues = uiState.secondarySubtitleCues,
+                syncOffsetMs = uiState.subtitleSyncOffsetMs,
+                config = uiState.subtitleDisplayConfig.copy(
+                    fontSize = (uiState.subtitleDisplayConfig.fontSize - 2f).coerceAtLeast(12f),
+                    showBackground = false,
+                    bottomPadding = 104f
+                ),
+                position = SubtitleVerticalPosition.BOTTOM,
                 modifier = Modifier.fillMaxSize()
             )
         }
@@ -435,391 +462,65 @@ fun PlayerScreen(
             exit = fadeOut()
         ) {
             Box(modifier = Modifier.fillMaxSize()) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(
-                            Brush.verticalGradient(
-                                colors = listOf(
-                                    Color.Black.copy(alpha = 0.7f),
-                                    Color.Transparent
-                                )
-                            )
-                        )
-                        .padding(horizontal = 8.dp, vertical = 8.dp)
-                        .align(Alignment.TopCenter)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        IconButton(onClick = {
-                            viewModel.savePosition()
-                            onBackPressed()
-                        }) {
-                            Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.action_back), tint = Color.White)
-                        }
+                PlayerTopBar(
+                    title = uiState.mediaInfo?.title ?: stringResource(R.string.player_playing),
+                    subtitle = uiState.mediaInfo?.resolution.orEmpty(),
+                    subtitlesEnabled = playerState.currentSubtitleTrack >= 0 || uiState.primaryLocalSubtitleIndex >= 0,
+                    isLocked = uiState.isLocked,
+                    onBack = {
+                        viewModel.savePosition()
+                        onBackPressed()
+                    },
+                    onSubtitles = { viewModel.toggleSubtitleSelector() },
+                    onAudio = { viewModel.toggleAudioTrackSelector() },
+                    onSync = { viewModel.toggleSyncSheet() },
+                    onGuide = { showPlayerDemo = true },
+                    onLock = { viewModel.toggleLock() },
+                    modifier = Modifier.align(Alignment.TopCenter)
+                )
 
-                        Column(
-                            modifier = Modifier
-                                .weight(1f)
-                                .padding(horizontal = 8.dp)
-                        ) {
-                            Text(
-                                text = uiState.mediaInfo?.title ?: stringResource(R.string.player_playing),
-                                color = Color.White,
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                            if (uiState.mediaInfo?.resolution?.isNotEmpty() == true) {
-                                Text(
-                                    text = uiState.mediaInfo!!.resolution,
-                                    color = Color.White.copy(alpha = 0.7f),
-                                    fontSize = 12.sp
-                                )
-                            }
-                        }
-
-                        IconButton(onClick = { viewModel.toggleSubtitleSelector() }) {
-                            Icon(
-                                if (playerState.currentSubtitleTrack >= 0)
-                                    Icons.Rounded.Subtitles
-                                else
-                                    Icons.Rounded.SubtitlesOff,
-                                stringResource(R.string.player_subtitles),
-                                tint = Color.White
-                            )
-                        }
-
-                        IconButton(onClick = { viewModel.toggleAudioTrackSelector() }) {
-                            Icon(Icons.Rounded.Audiotrack, stringResource(R.string.player_audio), tint = Color.White)
-                        }
-
-                        IconButton(onClick = { viewModel.toggleSyncSheet() }) {
-                            Icon(Icons.Rounded.Tune, stringResource(R.string.player_sync_audio), tint = Color.White)
-                        }
-
-                        IconButton(onClick = { viewModel.toggleLock() }) {
-                            Icon(
-                                if (uiState.isLocked) Icons.Rounded.Lock else Icons.Rounded.LockOpen,
-                                stringResource(R.string.player_lock),
-                                tint = Color.White
-                            )
-                        }
-                    }
+                if (!uiState.isLocked) {
+                    TransportControls(
+                        isPlaying = playerState.isPlaying,
+                        hasPrevious = viewModel.hasPrevious,
+                        hasNext = viewModel.hasNext,
+                        onPrevious = { viewModel.playPrevious() },
+                        onRewind = { viewModel.seekBackward() },
+                        onPlayPause = { viewModel.togglePlayPause() },
+                        onForward = { viewModel.seekForward() },
+                        onNext = { viewModel.playNext() },
+                        modifier = Modifier.align(Alignment.Center)
+                    )
                 }
 
                 if (!uiState.isLocked) {
-                    Row(
-                        modifier = Modifier.align(Alignment.Center),
-                        horizontalArrangement = Arrangement.spacedBy(20.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        // Previous video
-                        if (viewModel.hasPrevious) {
-                            IconButton(
-                                onClick = { viewModel.playPrevious() },
-                                modifier = Modifier
-                                    .size(44.dp)
-                                    .clip(CircleShape)
-                                    .background(Color.Black.copy(alpha = 0.4f))
-                            ) {
-                                Icon(
-                                    Icons.Rounded.SkipPrevious,
-                                    stringResource(R.string.player_previous),
-                                    tint = Color.White,
-                                    modifier = Modifier.size(24.dp)
-                                )
+                    PlayerBottomPanel(
+                        state = uiState,
+                        playerState = playerState,
+                        hasQueue = uiState.queue.size > 1,
+                        mediaPath = mediaPath,
+                        onSeek = { viewModel.seekTo(it) },
+                        onSpeed = { viewModel.toggleSpeedSelector() },
+                        onLoop = { viewModel.toggleLoop() },
+                        onAspect = { viewModel.cycleAspectRatio() },
+                        onRotation = {
+                            val mode = viewModel.cycleRotation()
+                            activity?.requestedOrientation = when (mode) {
+                                RotationMode.AUTO -> ActivityInfo.SCREEN_ORIENTATION_SENSOR
+                                RotationMode.LANDSCAPE -> ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+                                RotationMode.PORTRAIT -> ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
                             }
-                        }
-
-                        IconButton(
-                            onClick = { viewModel.seekBackward() },
-                            modifier = Modifier
-                                .size(52.dp)
-                                .clip(CircleShape)
-                                .background(Color.Black.copy(alpha = 0.4f))
-                        ) {
-                            Icon(
-                                Icons.Rounded.Replay10,
-                                stringResource(R.string.player_rewind),
-                                tint = Color.White,
-                                modifier = Modifier.size(28.dp)
-                            )
-                        }
-
-                        IconButton(
-                            onClick = { viewModel.togglePlayPause() },
-                            modifier = Modifier
-                                .size(68.dp)
-                                .clip(CircleShape)
-                                .background(Orange500.copy(alpha = 0.9f))
-                        ) {
-                            Icon(
-                                if (playerState.isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                                stringResource(R.string.player_play_pause),
-                                tint = Color.White,
-                                modifier = Modifier.size(36.dp)
-                            )
-                        }
-
-                        IconButton(
-                            onClick = { viewModel.seekForward() },
-                            modifier = Modifier
-                                .size(52.dp)
-                                .clip(CircleShape)
-                                .background(Color.Black.copy(alpha = 0.4f))
-                        ) {
-                            Icon(
-                                Icons.Rounded.Forward10,
-                                stringResource(R.string.player_forward),
-                                tint = Color.White,
-                                modifier = Modifier.size(28.dp)
-                            )
-                        }
-
-                        // Next video
-                        if (viewModel.hasNext) {
-                            IconButton(
-                                onClick = { viewModel.playNext() },
-                                modifier = Modifier
-                                    .size(44.dp)
-                                    .clip(CircleShape)
-                                    .background(Color.Black.copy(alpha = 0.4f))
-                            ) {
-                                Icon(
-                                    Icons.Rounded.SkipNext,
-                                    stringResource(R.string.player_next),
-                                    tint = Color.White,
-                                    modifier = Modifier.size(24.dp)
-                                )
-                            }
-                        }
-                    }
-                }
-
-                if (!uiState.isLocked) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .align(Alignment.BottomCenter)
-                            .background(
-                                Brush.verticalGradient(
-                                    colors = listOf(
-                                        Color.Transparent,
-                                        Color.Black.copy(alpha = 0.7f)
-                                    )
-                                )
-                            )
-                            .padding(horizontal = 12.dp, vertical = 4.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = formatTime(playerState.currentPosition),
-                                color = Color.White,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Medium
-                            )
-
-                            Slider(
-                                value = if (playerState.duration > 0)
-                                    playerState.currentPosition.toFloat() / playerState.duration.toFloat()
-                                else 0f,
-                                onValueChange = { fraction ->
-                                    viewModel.seekTo((fraction * playerState.duration).toLong())
-                                },
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .padding(horizontal = 8.dp),
-                                colors = SliderDefaults.colors(
-                                    thumbColor = Orange500,
-                                    activeTrackColor = Orange500,
-                                    inactiveTrackColor = Color.White.copy(alpha = 0.3f)
-                                )
-                            )
-
-                            Text(
-                                text = formatTime(playerState.duration),
-                                color = Color.White,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            TextButton(onClick = { viewModel.toggleSpeedSelector() }) {
-                                Text(
-                                    "${playerState.playbackSpeed}x",
-                                    color = Color.White,
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                            }
-
-                            Row {
-                                IconButton(onClick = { viewModel.toggleLoop() }) {
-                                    Icon(
-                                        if (playerState.isLooping) Icons.Rounded.RepeatOne else Icons.Rounded.Repeat,
-                                        stringResource(R.string.player_loop),
-                                        tint = if (playerState.isLooping) Orange500 else Color.White,
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                }
-
-                                IconButton(onClick = { viewModel.cycleAspectRatio() }) {
-                                    Icon(
-                                        Icons.Rounded.AspectRatio,
-                                        stringResource(R.string.player_aspect_ratio),
-                                        tint = Color.White,
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                }
-
-                                // Rotation Lock
-                                IconButton(onClick = {
-                                    val mode = viewModel.cycleRotation()
-                                    activity?.requestedOrientation = when (mode) {
-                                        RotationMode.AUTO -> ActivityInfo.SCREEN_ORIENTATION_SENSOR
-                                        RotationMode.LANDSCAPE -> ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
-                                        RotationMode.PORTRAIT -> ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-                                    }
-                                }) {
-                                    Icon(
-                                        when (uiState.rotationMode) {
-                                            RotationMode.AUTO -> Icons.Rounded.ScreenRotation
-                                            RotationMode.LANDSCAPE -> Icons.Rounded.ScreenLockLandscape
-                                            RotationMode.PORTRAIT -> Icons.Rounded.ScreenLockPortrait
-                                        },
-                                        stringResource(R.string.player_rotation),
-                                        tint = if (uiState.rotationMode != RotationMode.AUTO) Orange500 else Color.White,
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                }
-
-                                // Night / Blue Light Filter
-                                IconButton(onClick = { viewModel.toggleNightFilter() }) {
-                                    Icon(
-                                        Icons.Rounded.NightsStay,
-                                        stringResource(R.string.player_night_filter),
-                                        tint = if (uiState.isNightFilterEnabled) Orange500 else Color.White,
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                }
-
-                                IconButton(onClick = { onEnterPiP?.invoke() }) {
-                                    Icon(
-                                        Icons.Rounded.PictureInPictureAlt,
-                                        stringResource(R.string.player_pip),
-                                        tint = Color.White,
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                }
-
-                                IconButton(onClick = {
-                                    val pos = uiState.playerState.currentPosition
-                                    onFloatingVideo?.invoke(mediaPath, pos)
-                                }) {
-                                    Icon(
-                                        Icons.Rounded.OpenInNew,
-                                        "Floating Video",
-                                        tint = Color.White,
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                }
-                            }
-                        }
-
-                        // v1.3 Controls Row
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            // Queue info
-                            if (uiState.queue.size > 1) {
-                                Text(
-                                    stringResource(R.string.player_queue, uiState.currentQueueIndex + 1, uiState.queue.size),
-                                    color = Color.White.copy(alpha = 0.7f),
-                                    fontSize = 11.sp,
-                                    modifier = Modifier.padding(start = 8.dp)
-                                )
-                            } else {
-                                Spacer(modifier = Modifier.width(1.dp))
-                            }
-
-                            Row {
-                                // Shuffle
-                                if (uiState.queue.size > 1) {
-                                    IconButton(onClick = { viewModel.toggleShuffle() }) {
-                                        Icon(
-                                            Icons.Rounded.Shuffle,
-                                            stringResource(R.string.player_shuffle),
-                                            tint = if (uiState.isShuffled) Orange500 else Color.White,
-                                            modifier = Modifier.size(20.dp)
-                                        )
-                                    }
-                                }
-
-                                // Repeat
-                                IconButton(onClick = { viewModel.cycleRepeatMode() }) {
-                                    Icon(
-                                        when (uiState.repeatMode) {
-                                            RepeatMode.OFF -> Icons.Rounded.Repeat
-                                            RepeatMode.ALL -> Icons.Rounded.Repeat
-                                            RepeatMode.ONE -> Icons.Rounded.RepeatOne
-                                        },
-                                        stringResource(
-                                            when (uiState.repeatMode) {
-                                                RepeatMode.OFF -> R.string.player_repeat_off
-                                                RepeatMode.ALL -> R.string.player_repeat_all
-                                                RepeatMode.ONE -> R.string.player_repeat_one
-                                            }
-                                        ),
-                                        tint = if (uiState.repeatMode != RepeatMode.OFF) Orange500 else Color.White,
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                }
-
-                                // Skip Silence
-                                IconButton(onClick = { viewModel.toggleSkipSilence() }) {
-                                    Icon(
-                                        Icons.Rounded.Speed,
-                                        stringResource(R.string.player_skip_silence),
-                                        tint = if (uiState.skipSilenceEnabled) Orange500 else Color.White,
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                }
-
-                                // Equalizer
-                                IconButton(onClick = { viewModel.toggleEqualizerSheet() }) {
-                                    Icon(
-                                        Icons.Rounded.Equalizer,
-                                        stringResource(R.string.player_equalizer),
-                                        tint = if (uiState.equalizerState.isEnabled) Orange500 else Color.White,
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                }
-
-                                // Video Filters
-                                IconButton(onClick = { viewModel.toggleVideoFilterSheet() }) {
-                                    Icon(
-                                        Icons.Rounded.Tune,
-                                        stringResource(R.string.player_video_filters),
-                                        tint = if (!uiState.videoFilterState.isDefault) Orange500 else Color.White,
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                }
-                            }
-                        }
-                    }
+                        },
+                        onNight = { viewModel.toggleNightFilter() },
+                        onPip = { onEnterPiP?.invoke() },
+                        onFloating = { path, pos -> onFloatingVideo?.invoke(path, pos) },
+                        onShuffle = { viewModel.toggleShuffle() },
+                        onRepeat = { viewModel.cycleRepeatMode() },
+                        onSkipSilence = { viewModel.toggleSkipSilence() },
+                        onEqualizer = { viewModel.toggleEqualizerSheet() },
+                        onFilters = { viewModel.toggleVideoFilterSheet() },
+                        modifier = Modifier.align(Alignment.BottomCenter)
+                    )
                 }
 
                 if (uiState.isLocked) {
@@ -872,17 +573,56 @@ fun PlayerScreen(
 
         if (uiState.showSubtitleSelector) {
             SubtitleSelectorDialog(
-                trackCount = playerState.subtitleTrackCount,
-                currentTrack = playerState.currentSubtitleTrack,
-                onTrackSelected = {
+                embeddedTracks = uiState.subtitleTrackInfoList,
+                localTracks = uiState.localSubtitleTracks,
+                currentEmbeddedTrack = playerState.currentSubtitleTrack,
+                currentPrimaryLocalTrack = uiState.primaryLocalSubtitleIndex,
+                currentSecondaryLocalTrack = uiState.secondaryLocalSubtitleIndex,
+                subtitleMessage = uiState.subtitleMessage,
+                onEmbeddedTrackSelected = {
                     viewModel.selectSubtitleTrack(it)
                     viewModel.toggleSubtitleSelector()
                 },
+                onPrimaryLocalSelected = { viewModel.selectPrimaryLocalSubtitle(it) },
+                onSecondaryLocalSelected = { viewModel.selectSecondaryLocalSubtitle(it) },
                 onDisable = {
-                    viewModel.selectSubtitleTrack(-1)
+                    viewModel.disableSubtitles()
                     viewModel.toggleSubtitleSelector()
                 },
+                onSearchOnline = {
+                    viewModel.toggleSubtitleSelector()
+                    viewModel.toggleOnlineSubtitleDialog()
+                    viewModel.searchOnlineSubtitles()
+                },
+                onStyle = {
+                    viewModel.toggleSubtitleSelector()
+                    viewModel.toggleSubtitleStyleSheet()
+                },
                 onDismiss = { viewModel.toggleSubtitleSelector() }
+            )
+        }
+
+        if (uiState.showOnlineSubtitleDialog) {
+            OnlineSubtitleDialog(
+                results = uiState.onlineSubtitleResults,
+                isSearching = uiState.isSearchingSubtitles,
+                isDownloading = uiState.isDownloadingSubtitle,
+                message = uiState.subtitleMessage,
+                onRetry = { viewModel.searchOnlineSubtitles() },
+                onDownload = { viewModel.downloadOnlineSubtitle(it) },
+                onDismiss = { viewModel.toggleOnlineSubtitleDialog() }
+            )
+        }
+
+        if (uiState.showSubtitleStyleSheet) {
+            SubtitleStyleBottomSheet(
+                config = uiState.subtitleDisplayConfig,
+                onFontSizeChange = { viewModel.setSubtitleFontSize(it) },
+                onBackgroundChange = { viewModel.setSubtitleBackground(it) },
+                onColorChange = { viewModel.setSubtitleFontColor(it) },
+                onOutlineChange = { viewModel.setSubtitleOutlineEnabled(it) },
+                onShadowChange = { viewModel.setSubtitleShadowEnabled(it) },
+                onDismiss = { viewModel.toggleSubtitleStyleSheet() }
             )
         }
 
@@ -922,6 +662,55 @@ fun PlayerScreen(
                 onGammaChange = { viewModel.setVideoGamma(it) },
                 onReset = { viewModel.resetVideoFilters() },
                 onDismiss = { viewModel.toggleVideoFilterSheet() }
+            )
+        }
+
+        if (showPlayerDemo) {
+            GuidedDemoDialog(
+                title = stringResource(R.string.player_demo_title),
+                steps = listOf(
+                    GuidedDemoStep(
+                        title = stringResource(R.string.player_demo_transport_title),
+                        description = stringResource(R.string.player_demo_transport_desc),
+                        icon = Icons.Rounded.PlayCircle,
+                        targetLabel = stringResource(R.string.player_play_pause)
+                    ),
+                    GuidedDemoStep(
+                        title = stringResource(R.string.player_demo_top_tools_title),
+                        description = stringResource(R.string.player_demo_top_tools_desc),
+                        icon = Icons.Rounded.Subtitles,
+                        targetLabel = stringResource(R.string.player_demo_top_tools_target)
+                    ),
+                    GuidedDemoStep(
+                        title = stringResource(R.string.player_demo_gestures_title),
+                        description = stringResource(R.string.player_demo_gestures_desc),
+                        icon = Icons.Rounded.TouchApp,
+                        targetLabel = stringResource(R.string.player_demo_gestures_target)
+                    ),
+                    GuidedDemoStep(
+                        title = stringResource(R.string.player_demo_timeline_title),
+                        description = stringResource(R.string.player_demo_timeline_desc),
+                        icon = Icons.Rounded.Speed,
+                        targetLabel = stringResource(R.string.player_demo_timeline_target)
+                    ),
+                    GuidedDemoStep(
+                        title = stringResource(R.string.player_demo_view_tools_title),
+                        description = stringResource(R.string.player_demo_view_tools_desc),
+                        icon = Icons.Rounded.AspectRatio,
+                        targetLabel = stringResource(R.string.player_demo_view_tools_target)
+                    ),
+                    GuidedDemoStep(
+                        title = stringResource(R.string.player_demo_audio_video_title),
+                        description = stringResource(R.string.player_demo_audio_video_desc),
+                        icon = Icons.Rounded.Equalizer,
+                        targetLabel = stringResource(R.string.player_demo_audio_video_target)
+                    )
+                ),
+                surface = GuidedDemoSurface.PLAYER,
+                doneText = stringResource(R.string.player_demo_done),
+                previousText = stringResource(R.string.player_demo_previous),
+                nextText = stringResource(R.string.player_demo_next),
+                onDismiss = { showPlayerDemo = false }
             )
         }
 
@@ -1033,6 +822,275 @@ fun PlayerScreen(
                 viewModel.dismissResumePrompt()
             }
         }
+    }
+}
+
+@Composable
+private fun PlayerTopBar(
+    title: String,
+    subtitle: String,
+    subtitlesEnabled: Boolean,
+    isLocked: Boolean,
+    onBack: () -> Unit,
+    onSubtitles: () -> Unit,
+    onAudio: () -> Unit,
+    onSync: () -> Unit,
+    onGuide: () -> Unit,
+    onLock: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .background(
+                Brush.verticalGradient(
+                    listOf(Color.Black.copy(alpha = 0.76f), Color.Transparent)
+                )
+            )
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        IconButton(onClick = onBack, modifier = Modifier.size(44.dp)) {
+            Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.action_back), tint = Color.White)
+        }
+
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .padding(horizontal = 8.dp)
+        ) {
+            Text(
+                text = title,
+                color = Color.White,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            if (subtitle.isNotBlank()) {
+                Text(
+                    text = subtitle,
+                    color = Color.White.copy(alpha = 0.68f),
+                    fontSize = 12.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+
+        CompactToolButton(
+            icon = if (subtitlesEnabled) Icons.Rounded.Subtitles else Icons.Rounded.SubtitlesOff,
+            label = stringResource(R.string.player_subtitles),
+            active = subtitlesEnabled,
+            onClick = onSubtitles
+        )
+        CompactToolButton(Icons.Rounded.Audiotrack, stringResource(R.string.player_audio), onClick = onAudio)
+        CompactToolButton(Icons.Rounded.Tune, stringResource(R.string.player_sync_audio), onClick = onSync)
+        CompactToolButton(Icons.Rounded.TipsAndUpdates, stringResource(R.string.player_app_guide), onClick = onGuide)
+        CompactToolButton(
+            icon = if (isLocked) Icons.Rounded.Lock else Icons.Rounded.LockOpen,
+            label = stringResource(R.string.player_lock),
+            active = isLocked,
+            onClick = onLock
+        )
+    }
+}
+
+@Composable
+private fun TransportControls(
+    isPlaying: Boolean,
+    hasPrevious: Boolean,
+    hasNext: Boolean,
+    onPrevious: () -> Unit,
+    onRewind: () -> Unit,
+    onPlayPause: () -> Unit,
+    onForward: () -> Unit,
+    onNext: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .clip(RoundedCornerShape(40.dp))
+            .background(Color.Black.copy(alpha = 0.28f))
+            .padding(horizontal = 8.dp, vertical = 6.dp),
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        if (hasPrevious) TransportButton(Icons.Rounded.SkipPrevious, stringResource(R.string.player_previous), onPrevious)
+        TransportButton(Icons.Rounded.Replay10, stringResource(R.string.player_rewind), onRewind)
+        IconButton(
+            onClick = onPlayPause,
+            modifier = Modifier
+                .size(68.dp)
+                .clip(CircleShape)
+                .background(Orange500)
+        ) {
+            Icon(
+                if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                stringResource(R.string.player_play_pause),
+                tint = Color.White,
+                modifier = Modifier.size(36.dp)
+            )
+        }
+        TransportButton(Icons.Rounded.Forward10, stringResource(R.string.player_forward), onForward)
+        if (hasNext) TransportButton(Icons.Rounded.SkipNext, stringResource(R.string.player_next), onNext)
+    }
+}
+
+@Composable
+private fun PlayerBottomPanel(
+    state: PlayerUiState,
+    playerState: PlayerState,
+    hasQueue: Boolean,
+    mediaPath: String,
+    onSeek: (Long) -> Unit,
+    onSpeed: () -> Unit,
+    onLoop: () -> Unit,
+    onAspect: () -> Unit,
+    onRotation: () -> Unit,
+    onNight: () -> Unit,
+    onPip: () -> Unit,
+    onFloating: (String, Long) -> Unit,
+    onShuffle: () -> Unit,
+    onRepeat: () -> Unit,
+    onSkipSilence: () -> Unit,
+    onEqualizer: () -> Unit,
+    onFilters: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .background(
+                Brush.verticalGradient(
+                    listOf(Color.Transparent, Color.Black.copy(alpha = 0.82f))
+                )
+            )
+            .padding(horizontal = 16.dp, vertical = 10.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(formatTime(playerState.currentPosition), color = Color.White, fontSize = 12.sp)
+            Slider(
+                value = if (playerState.duration > 0) {
+                    playerState.currentPosition.toFloat() / playerState.duration.toFloat()
+                } else {
+                    0f
+                },
+                onValueChange = { onSeek((it * playerState.duration).toLong()) },
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(horizontal = 10.dp),
+                colors = SliderDefaults.colors(
+                    thumbColor = Orange500,
+                    activeTrackColor = Orange500,
+                    inactiveTrackColor = Color.White.copy(alpha = 0.24f)
+                )
+            )
+            Text(formatTime(playerState.duration), color = Color.White, fontSize = 12.sp)
+        }
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState())
+                .padding(top = 2.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            TextButton(onClick = onSpeed) {
+                Icon(Icons.Rounded.Speed, null, tint = Color.White.copy(alpha = 0.9f), modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(6.dp))
+                Text("${playerState.playbackSpeed}x", color = Color.White)
+            }
+            CompactToolButton(
+                icon = if (playerState.isLooping) Icons.Rounded.RepeatOne else Icons.Rounded.Repeat,
+                label = stringResource(R.string.player_loop),
+                active = playerState.isLooping,
+                onClick = onLoop
+            )
+            CompactToolButton(Icons.Rounded.AspectRatio, stringResource(R.string.player_aspect_ratio), onClick = onAspect)
+            CompactToolButton(
+                icon = when (state.rotationMode) {
+                    RotationMode.AUTO -> Icons.Rounded.ScreenRotation
+                    RotationMode.LANDSCAPE -> Icons.Rounded.ScreenLockLandscape
+                    RotationMode.PORTRAIT -> Icons.Rounded.ScreenLockPortrait
+                },
+                label = stringResource(R.string.player_rotation),
+                active = state.rotationMode != RotationMode.AUTO,
+                onClick = onRotation
+            )
+            CompactToolButton(
+                Icons.Rounded.NightsStay,
+                stringResource(R.string.player_night_filter),
+                active = state.isNightFilterEnabled,
+                onClick = onNight
+            )
+            CompactToolButton(Icons.Rounded.PictureInPictureAlt, stringResource(R.string.player_pip), onClick = onPip)
+            CompactToolButton(Icons.Rounded.OpenInNew, "Floating Video", onClick = {
+                onFloating(mediaPath, state.playerState.currentPosition)
+            })
+            if (hasQueue) {
+                CompactToolButton(Icons.Rounded.Shuffle, stringResource(R.string.player_shuffle), state.isShuffled, onShuffle)
+            }
+            CompactToolButton(
+                icon = if (state.repeatMode == RepeatMode.ONE) Icons.Rounded.RepeatOne else Icons.Rounded.Repeat,
+                label = stringResource(
+                    when (state.repeatMode) {
+                        RepeatMode.OFF -> R.string.player_repeat_off
+                        RepeatMode.ALL -> R.string.player_repeat_all
+                        RepeatMode.ONE -> R.string.player_repeat_one
+                    }
+                ),
+                active = state.repeatMode != RepeatMode.OFF,
+                onClick = onRepeat
+            )
+            CompactToolButton(Icons.Rounded.GraphicEq, stringResource(R.string.player_skip_silence), state.skipSilenceEnabled, onSkipSilence)
+            CompactToolButton(Icons.Rounded.Equalizer, stringResource(R.string.player_equalizer), state.equalizerState.isEnabled, onEqualizer)
+            CompactToolButton(Icons.Rounded.Tune, stringResource(R.string.player_video_filters), !state.videoFilterState.isDefault, onFilters)
+        }
+    }
+}
+
+@Composable
+private fun CompactToolButton(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    active: Boolean = false,
+    onClick: () -> Unit
+) {
+    IconButton(
+        onClick = onClick,
+        modifier = Modifier
+            .size(42.dp)
+            .clip(CircleShape)
+            .background(if (active) Orange500.copy(alpha = 0.18f) else Color.White.copy(alpha = 0.08f))
+    ) {
+        Icon(
+            icon,
+            label,
+            tint = if (active) Orange500 else Color.White,
+            modifier = Modifier.size(20.dp)
+        )
+    }
+}
+
+@Composable
+private fun TransportButton(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    onClick: () -> Unit
+) {
+    IconButton(
+        onClick = onClick,
+        modifier = Modifier
+            .size(50.dp)
+            .clip(CircleShape)
+            .background(Color.White.copy(alpha = 0.10f))
+    ) {
+        Icon(icon, label, tint = Color.White, modifier = Modifier.size(26.dp))
     }
 }
 
@@ -1185,17 +1243,48 @@ private fun EnhancedAudioTrackDialog(
 
 @Composable
 private fun SubtitleSelectorDialog(
-    trackCount: Int,
-    currentTrack: Int,
-    onTrackSelected: (Int) -> Unit,
+    embeddedTracks: List<SubtitleTrackInfo>,
+    localTracks: List<PlayerSubtitleTrack>,
+    currentEmbeddedTrack: Int,
+    currentPrimaryLocalTrack: Int,
+    currentSecondaryLocalTrack: Int,
+    subtitleMessage: String?,
+    onEmbeddedTrackSelected: (Int) -> Unit,
+    onPrimaryLocalSelected: (Int) -> Unit,
+    onSecondaryLocalSelected: (Int) -> Unit,
     onDisable: () -> Unit,
+    onSearchOnline: () -> Unit,
+    onStyle: () -> Unit,
     onDismiss: () -> Unit
 ) {
     AlertDialog(
+        modifier = Modifier.widthIn(min = 360.dp, max = 560.dp),
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.player_subtitle_track)) },
         text = {
-            Column {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilledTonalButton(
+                        onClick = onSearchOnline,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Rounded.CloudDownload, null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(stringResource(R.string.player_search_subtitles))
+                    }
+                    OutlinedButton(
+                        onClick = onStyle,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Rounded.FormatColorText, null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(stringResource(R.string.player_subtitle_style))
+                    }
+                }
+
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -1204,44 +1293,49 @@ private fun SubtitleSelectorDialog(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     RadioButton(
-                        selected = currentTrack < 0,
+                        selected = currentEmbeddedTrack < 0 && currentPrimaryLocalTrack < 0,
                         onClick = { onDisable() }
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         stringResource(R.string.player_subtitles_off),
-                        fontWeight = if (currentTrack < 0) FontWeight.Bold else FontWeight.Normal,
-                        color = if (currentTrack < 0)
+                        fontWeight = if (currentEmbeddedTrack < 0 && currentPrimaryLocalTrack < 0) FontWeight.Bold else FontWeight.Normal,
+                        color = if (currentEmbeddedTrack < 0 && currentPrimaryLocalTrack < 0)
                             MaterialTheme.colorScheme.primary
                         else
                             MaterialTheme.colorScheme.onSurface
                     )
                 }
 
-                if (trackCount == 0) {
+                Text(
+                    stringResource(R.string.player_embedded_subtitles),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                if (embeddedTracks.isEmpty()) {
                     Text(
                         stringResource(R.string.player_no_subtitle_tracks),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(start = 40.dp, top = 4.dp)
+                        modifier = Modifier.padding(start = 8.dp)
                     )
                 } else {
-                    for (i in 0 until trackCount) {
+                    embeddedTracks.forEach { track ->
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable { onTrackSelected(i) }
+                                .clickable { onEmbeddedTrackSelected(track.index) }
                                 .padding(vertical = 4.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             RadioButton(
-                                selected = currentTrack == i,
-                                onClick = { onTrackSelected(i) }
+                                selected = currentEmbeddedTrack == track.index,
+                                onClick = { onEmbeddedTrackSelected(track.index) }
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                stringResource(R.string.player_track_number, i + 1),
-                                fontWeight = if (currentTrack == i) FontWeight.Bold else FontWeight.Normal,
-                                color = if (currentTrack == i)
+                                track.displayName,
+                                fontWeight = if (currentEmbeddedTrack == track.index) FontWeight.Bold else FontWeight.Normal,
+                                color = if (currentEmbeddedTrack == track.index)
                                     MaterialTheme.colorScheme.primary
                                 else
                                     MaterialTheme.colorScheme.onSurface
@@ -1249,12 +1343,245 @@ private fun SubtitleSelectorDialog(
                         }
                     }
                 }
+
+                Text(
+                    stringResource(R.string.player_sidecar_subtitles),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                if (localTracks.isEmpty()) {
+                    Text(
+                        stringResource(R.string.player_no_sidecar_subtitles),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(start = 8.dp)
+                    )
+                } else {
+                    localTracks.forEach { track ->
+                        SubtitleLocalTrackRow(
+                            track = track,
+                            label = stringResource(R.string.player_primary_subtitle),
+                            selected = currentPrimaryLocalTrack == track.index,
+                            onClick = { onPrimaryLocalSelected(track.index) }
+                        )
+                        SubtitleLocalTrackRow(
+                            track = track,
+                            label = stringResource(R.string.player_secondary_subtitle),
+                            selected = currentSecondaryLocalTrack == track.index,
+                            onClick = { onSecondaryLocalSelected(track.index) }
+                        )
+                    }
+                    if (currentSecondaryLocalTrack >= 0) {
+                        TextButton(onClick = { onSecondaryLocalSelected(-1) }) {
+                            Text("${stringResource(R.string.player_secondary_subtitle)} ${stringResource(R.string.player_subtitles_off)}")
+                        }
+                    }
+                }
+
+                subtitleMessage?.let {
+                    Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                }
             }
         },
         confirmButton = {
             TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) }
         }
     )
+}
+
+@Composable
+private fun SubtitleLocalTrackRow(
+    track: PlayerSubtitleTrack,
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(vertical = 3.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        RadioButton(selected = selected, onClick = onClick)
+        Spacer(modifier = Modifier.width(8.dp))
+        Column {
+            Text(
+                "$label: ${track.name}",
+                fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                fontSize = 14.sp
+            )
+            Text(
+                track.source.name.lowercase().replaceFirstChar { it.uppercase() },
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 11.sp
+            )
+        }
+    }
+}
+
+@Composable
+private fun OnlineSubtitleDialog(
+    results: List<OnlineSubtitle>,
+    isSearching: Boolean,
+    isDownloading: Boolean,
+    message: String?,
+    onRetry: () -> Unit,
+    onDownload: (OnlineSubtitle) -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        modifier = Modifier.widthIn(min = 360.dp, max = 560.dp),
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.player_online_subtitles)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                when {
+                    isSearching -> {
+                        LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                        Text(stringResource(R.string.player_searching_subtitles))
+                    }
+                    isDownloading -> {
+                        LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                        Text(stringResource(R.string.player_downloading_subtitle))
+                    }
+                    results.isEmpty() -> {
+                        Text(
+                            message ?: stringResource(R.string.player_no_online_subtitles),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    else -> {
+                        results.take(8).forEach { subtitle ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { onDownload(subtitle) }
+                                    .padding(vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(Icons.Rounded.Subtitles, null, tint = MaterialTheme.colorScheme.primary)
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        subtitle.displayName,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                    Text(
+                                        "${subtitle.downloadCount} downloads - ${subtitle.language}",
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        fontSize = 12.sp
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+                message?.takeIf { results.isNotEmpty() }?.let {
+                    Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onRetry, enabled = !isSearching && !isDownloading) {
+                Text(stringResource(R.string.action_retry))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) }
+        }
+    )
+}
+
+@kotlin.OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SubtitleStyleBottomSheet(
+    config: SubtitleDisplayConfig,
+    onFontSizeChange: (Float) -> Unit,
+    onBackgroundChange: (Boolean) -> Unit,
+    onColorChange: (String) -> Unit,
+    onOutlineChange: (Boolean) -> Unit,
+    onShadowChange: (Boolean) -> Unit,
+    onDismiss: () -> Unit
+) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        containerColor = MaterialTheme.colorScheme.surfaceContainer
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp, vertical = 8.dp)
+                .padding(bottom = 32.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Text(
+                stringResource(R.string.player_subtitle_style),
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
+            )
+
+            FilterSliderRow(
+                label = stringResource(R.string.settings_font_size),
+                value = config.fontSize,
+                valueRange = 12f..36f,
+                valueText = "${config.fontSize.toInt()}sp",
+                onValueChange = onFontSizeChange
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(stringResource(R.string.settings_subtitle_bg))
+                Switch(checked = config.showBackground, onCheckedChange = onBackgroundChange)
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(stringResource(R.string.settings_subtitle_outline))
+                Switch(checked = config.outlineWidth > 0f, onCheckedChange = onOutlineChange)
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(stringResource(R.string.settings_subtitle_shadow))
+                Switch(checked = config.shadowEnabled, onCheckedChange = onShadowChange)
+            }
+
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf(
+                    "FFFFFFFF" to Color.White,
+                    "FFFFFF00" to Color.Yellow,
+                    "FF00E5FF" to Color.Cyan,
+                    "FFFFAB40" to Color(0xFFFFAB40),
+                    "FF69F0AE" to Color(0xFF69F0AE)
+                ).forEach { (hex, color) ->
+                    IconButton(
+                        onClick = { onColorChange(hex) },
+                        modifier = Modifier
+                            .size(42.dp)
+                            .clip(CircleShape)
+                            .background(color)
+                            .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape)
+                    ) {
+                        if (config.fontColor == color) {
+                            Icon(Icons.Rounded.Check, null, tint = Color.Black)
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 @kotlin.OptIn(ExperimentalMaterial3Api::class)

@@ -14,9 +14,10 @@ object SubtitleParser {
 
         val cues = when (format) {
             SubtitleFormat.SRT -> parseSrt(content)
+            SubtitleFormat.VTT -> parseVtt(content)
             SubtitleFormat.ASS, SubtitleFormat.SSA -> parseAss(content)
             SubtitleFormat.SUB -> parseSub(content, fps)
-            SubtitleFormat.UNKNOWN -> parseSrt(content)
+            SubtitleFormat.PGS, SubtitleFormat.UNKNOWN -> parseSrt(content)
         }
 
         return SubtitleTrack(
@@ -34,6 +35,8 @@ object SubtitleParser {
             "ass" -> SubtitleFormat.ASS
             "ssa" -> SubtitleFormat.SSA
             "sub" -> SubtitleFormat.SUB
+            "vtt" -> SubtitleFormat.VTT
+            "sup", "pgs" -> SubtitleFormat.PGS
             else -> SubtitleFormat.UNKNOWN
         }
     }
@@ -87,6 +90,15 @@ object SubtitleParser {
         }
 
         return cues.sortedBy { it.startTimeMs }
+    }
+
+    private fun parseVtt(content: String): List<SubtitleCue> {
+        val cleaned = content
+            .replace("\uFEFF", "")
+            .lines()
+            .filterNot { it.trim().equals("WEBVTT", ignoreCase = true) }
+            .joinToString("\n")
+        return parseSrt(cleaned)
     }
 
     private fun parseAss(content: String): List<SubtitleCue> {

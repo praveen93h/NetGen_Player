@@ -5,6 +5,7 @@
     <string name="action_close">Close</string>
     <string name="action_retry">Retry</string>
     <string name="action_reset">Reset</string>
+    <string name="action_save">Save</string>
 
     <string name="player_playing">Playing</string>
     <string name="player_subtitles">Subtitles</string>
@@ -33,6 +34,18 @@
     <string name="player_no_tracks">No tracks available</string>
     <string name="player_track_number">Track %d</string>
     <string name="player_subtitle_track">Subtitle Track</string>
+    <string name="player_primary_subtitle">Primary Subtitle</string>
+    <string name="player_secondary_subtitle">Secondary Subtitle</string>
+    <string name="player_sidecar_subtitles">Sidecar Subtitles</string>
+    <string name="player_embedded_subtitles">Embedded Subtitles</string>
+    <string name="player_online_subtitles">Online Subtitles</string>
+    <string name="player_search_subtitles">Search Subtitles</string>
+    <string name="player_subtitle_style">Subtitle Style</string>
+    <string name="player_no_online_subtitles">No online subtitles found</string>
+    <string name="player_no_sidecar_subtitles">No sidecar subtitles found beside this video</string>
+    <string name="player_downloading_subtitle">Downloading subtitle...</string>
+    <string name="player_searching_subtitles">Searching subtitles...</string>
+    <string name="player_subtitle_message">Subtitle message</string>
     <string name="player_subtitles_off">Off</string>
     <string name="player_no_subtitle_tracks">No subtitle tracks found</string>
     <string name="player_audio_boost">Audio Boost</string>
@@ -42,6 +55,28 @@
     <string name="player_plus_100ms">+100ms</string>
     <string name="player_minus_50ms">-50ms</string>
     <string name="player_plus_50ms">+50ms</string>
+    <string name="player_app_guide">App guide</string>
+    <string name="player_demo_title">Player Guide</string>
+    <string name="player_demo_done">Done</string>
+    <string name="player_demo_previous">Previous</string>
+    <string name="player_demo_next">Next</string>
+    <string name="player_demo_transport_title">Core playback controls</string>
+    <string name="player_demo_transport_desc">The center controls handle previous, rewind, play or pause, forward, and next when there is a queue.</string>
+    <string name="player_demo_top_tools_title">Subtitles, audio, sync, and lock</string>
+    <string name="player_demo_top_tools_desc">The top row opens subtitle choices, audio tracks, sync controls, and the screen lock. The guide button stays there when you need a reminder.</string>
+    <string name="player_demo_top_tools_target">Top tool buttons</string>
+    <string name="player_demo_gestures_title">Tap and swipe gestures</string>
+    <string name="player_demo_gestures_desc">Tap to show controls, double-tap left or right to seek, swipe left side for brightness, and swipe right side for volume.</string>
+    <string name="player_demo_gestures_target">Video surface</string>
+    <string name="player_demo_timeline_title">Timeline and speed</string>
+    <string name="player_demo_timeline_desc">Drag the timeline to seek. The speed button changes playback rate without leaving the player.</string>
+    <string name="player_demo_timeline_target">Timeline and speed</string>
+    <string name="player_demo_view_tools_title">View and window tools</string>
+    <string name="player_demo_view_tools_desc">Aspect ratio, rotation, night filter, Picture-in-Picture, and floating video live in the lower tool row.</string>
+    <string name="player_demo_view_tools_target">View tools</string>
+    <string name="player_demo_audio_video_title">Audio and video tuning</string>
+    <string name="player_demo_audio_video_desc">Use skip silence, equalizer, and video filters for the heavy controls: sound shape, bass, virtualizer, brightness, contrast, and color.</string>
+    <string name="player_demo_audio_video_target">EQ and filters</string>
 
     <!-- v1.3 Equalizer -->
     <string name="player_equalizer">Equalizer</string>
@@ -78,6 +113,14 @@
     <string name="settings_font_size">Font Size</string>
     <string name="settings_subtitle_bg">Background</string>
     <string name="settings_subtitle_bg_desc">Show background behind subtitles</string>
+    <string name="settings_subtitle_color">Text Color</string>
+    <string name="settings_subtitle_outline">Outline</string>
+    <string name="settings_subtitle_outline_desc">Draw a readable edge around subtitle text</string>
+    <string name="settings_subtitle_shadow">Shadow</string>
+    <string name="settings_subtitle_shadow_desc">Add a soft shadow behind subtitle text</string>
+    <string name="settings_subtitle_language">Online Language</string>
+    <string name="settings_opensubtitles_api_key">OpenSubtitles API Key</string>
+    <string name="settings_opensubtitles_api_key_desc">Required for online subtitle search and download</string>
     <string name="settings_section_appearance">Appearance</string>
     <string name="settings_dark_theme">Dark Theme</string>
     <string name="settings_dark_theme_desc">Use dark color scheme</string>
@@ -87,7 +130,7 @@
     <string name="settings_auto_play_next_desc">Automatically play the next video in folder</string>
     <string name="settings_section_about">About</string>
     <string name="settings_about_title">NextGen Media Player</string>
-    <string name="settings_about_version">Version 1.5.0</string>
+    <string name="settings_about_version">Version 1.6.0</string>
     <string name="settings_privacy_title">Privacy Policy</string>
     <string name="settings_privacy_desc">No data collected. 100% offline.</string>
     <string name="settings_default_speed_title">Default Playback Speed</string>

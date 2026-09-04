@@ -22,6 +22,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -34,6 +35,10 @@ import com.nextgen.player.data.local.entity.MediaEntity
 import com.nextgen.player.data.local.repository.SortOrder
 import com.nextgen.player.library.R
 import com.nextgen.player.library.ui.components.MediaItemCard
+import com.nextgen.player.ui.components.GuidedDemoDialog
+import com.nextgen.player.ui.components.GuidedDemoPromptDialog
+import com.nextgen.player.ui.components.GuidedDemoStep
+import com.nextgen.player.ui.components.GuidedDemoSurface
 import com.nextgen.player.library.viewmodel.LibraryTab
 import com.nextgen.player.library.viewmodel.LibraryViewModel
 import com.nextgen.player.ui.theme.Orange500
@@ -50,6 +55,10 @@ fun LibraryScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var showSortMenu by remember { mutableStateOf(false) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    val demoPrefs = remember { context.getSharedPreferences("guided_demo", android.content.Context.MODE_PRIVATE) }
+    var showDemoPrompt by remember { mutableStateOf(!demoPrefs.getBoolean("install_prompt_shown", false)) }
+    var showFeatureDemo by remember { mutableStateOf(false) }
     val selectedTabIndex = LibraryTab.entries.indexOf(uiState.currentTab)
 
     Scaffold(
@@ -142,6 +151,15 @@ fun LibraryScreen(
                     )
                 )
             }
+        },
+        floatingActionButton = {
+            SmallFloatingActionButton(
+                onClick = { showFeatureDemo = true },
+                containerColor = Orange500,
+                contentColor = Color.White
+            ) {
+                Icon(Icons.Rounded.TipsAndUpdates, stringResource(R.string.library_feature_demo))
+            }
         }
     ) { paddingValues ->
         Column(
@@ -215,6 +233,7 @@ fun LibraryScreen(
                             else onMediaClick(media)
                         },
                         onScanClick = { viewModel.scanMedia() },
+                        onDemoClick = { showFeatureDemo = true },
                         selectedIds = uiState.selectedIds,
                         isSelectionMode = uiState.isSelectionMode,
                         onLongClick = { media -> viewModel.enterSelectionMode(media.id) },
@@ -266,6 +285,75 @@ fun LibraryScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteConfirm = false }) { Text("Cancel") }
+            }
+        )
+    }
+
+    if (showDemoPrompt) {
+        GuidedDemoPromptDialog(
+            title = stringResource(R.string.library_demo_prompt_title),
+            message = stringResource(R.string.library_demo_prompt_message),
+            startText = stringResource(R.string.library_demo_prompt_start),
+            dismissText = stringResource(R.string.library_demo_prompt_skip),
+            onStart = {
+                demoPrefs.edit().putBoolean("install_prompt_shown", true).apply()
+                showDemoPrompt = false
+                showFeatureDemo = true
+            },
+            onDismiss = {
+                demoPrefs.edit().putBoolean("install_prompt_shown", true).apply()
+                showDemoPrompt = false
+            }
+        )
+    }
+
+    if (showFeatureDemo) {
+        GuidedDemoDialog(
+            title = stringResource(R.string.library_feature_demo_title),
+            steps = listOf(
+                GuidedDemoStep(
+                    title = stringResource(R.string.library_demo_search_title),
+                    description = stringResource(R.string.library_demo_search_desc),
+                    icon = Icons.Rounded.Search,
+                    targetLabel = stringResource(R.string.library_search)
+                ),
+                GuidedDemoStep(
+                    title = stringResource(R.string.library_demo_actions_title),
+                    description = stringResource(R.string.library_demo_actions_desc),
+                    icon = Icons.Rounded.Refresh,
+                    targetLabel = stringResource(R.string.library_demo_actions_target)
+                ),
+                GuidedDemoStep(
+                    title = stringResource(R.string.library_demo_tabs_title),
+                    description = stringResource(R.string.library_demo_tabs_desc),
+                    icon = Icons.Rounded.VideoLibrary,
+                    targetLabel = stringResource(R.string.library_demo_tabs_target)
+                ),
+                GuidedDemoStep(
+                    title = stringResource(R.string.library_demo_open_title),
+                    description = stringResource(R.string.library_demo_open_desc),
+                    icon = Icons.Rounded.PlayCircle,
+                    targetLabel = stringResource(R.string.library_demo_open_target)
+                ),
+                GuidedDemoStep(
+                    title = stringResource(R.string.library_demo_folders_title),
+                    description = stringResource(R.string.library_demo_folders_desc),
+                    icon = Icons.Rounded.Folder,
+                    targetLabel = stringResource(R.string.library_tab_folders)
+                ),
+                GuidedDemoStep(
+                    title = stringResource(R.string.library_demo_network_settings_title),
+                    description = stringResource(R.string.library_demo_network_settings_desc),
+                    icon = Icons.Rounded.Lan,
+                    targetLabel = stringResource(R.string.library_demo_network_settings_target)
+                )
+            ),
+            surface = GuidedDemoSurface.HOME,
+            doneText = stringResource(R.string.library_feature_demo_done),
+            previousText = stringResource(R.string.library_demo_previous),
+            nextText = stringResource(R.string.library_demo_next),
+            onDismiss = {
+                showFeatureDemo = false
             }
         )
     }
@@ -381,6 +469,7 @@ private fun MediaGrid(
     isGridView: Boolean,
     onMediaClick: (MediaEntity) -> Unit,
     onScanClick: (() -> Unit)? = null,
+    onDemoClick: (() -> Unit)? = null,
     selectedIds: Set<Long> = emptySet(),
     isSelectionMode: Boolean = false,
     onLongClick: ((MediaEntity) -> Unit)? = null,
@@ -419,6 +508,14 @@ private fun MediaGrid(
                         Icon(Icons.Rounded.Refresh, null, Modifier.size(18.dp))
                         Spacer(Modifier.width(8.dp))
                         Text(stringResource(R.string.library_scan_now), color = Color.White)
+                    }
+                }
+                if (onDemoClick != null) {
+                    Spacer(modifier = Modifier.height(10.dp))
+                    OutlinedButton(onClick = onDemoClick) {
+                        Icon(Icons.Rounded.TipsAndUpdates, null, Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text(stringResource(R.string.library_feature_demo))
                     }
                 }
             }

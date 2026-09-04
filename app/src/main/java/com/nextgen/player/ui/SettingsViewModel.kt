@@ -39,6 +39,26 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch { settingsRepository.updateSubtitleBackground(enabled) }
     }
 
+    fun setSubtitleFontColorHex(hex: String) {
+        viewModelScope.launch { settingsRepository.updateSubtitleFontColorHex(hex) }
+    }
+
+    fun setSubtitleOutlineEnabled(enabled: Boolean) {
+        viewModelScope.launch { settingsRepository.updateSubtitleOutlineEnabled(enabled) }
+    }
+
+    fun setSubtitleShadowEnabled(enabled: Boolean) {
+        viewModelScope.launch { settingsRepository.updateSubtitleShadowEnabled(enabled) }
+    }
+
+    fun setSubtitleLanguage(language: String) {
+        viewModelScope.launch { settingsRepository.updateSubtitleLanguage(language) }
+    }
+
+    fun setOpenSubtitlesApiKey(apiKey: String) {
+        viewModelScope.launch { settingsRepository.updateOpenSubtitlesApiKey(apiKey) }
+    }
+
     fun setDarkTheme(enabled: Boolean) {
         viewModelScope.launch { settingsRepository.updateDarkTheme(enabled) }
     }

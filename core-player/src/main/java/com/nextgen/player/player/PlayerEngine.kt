@@ -74,6 +74,34 @@ data class AudioTrackInfo(
         }
 }
 
+data class SubtitleTrackInfo(
+    val index: Int,
+    val language: String?,
+    val label: String?,
+    val mimeType: String?,
+    val isImageBased: Boolean,
+    val isSupported: Boolean
+) {
+    val displayName: String
+        get() {
+            val name = when {
+                !label.isNullOrBlank() -> label
+                !language.isNullOrBlank() -> java.util.Locale(language).displayLanguage
+                else -> "Track ${index + 1}"
+            }
+            val type = when {
+                mimeType?.contains("pgs", ignoreCase = true) == true -> "PGS"
+                mimeType?.contains("vobsub", ignoreCase = true) == true -> "VobSub"
+                mimeType?.contains("ssa", ignoreCase = true) == true -> "SSA"
+                mimeType?.contains("ass", ignoreCase = true) == true -> "ASS"
+                mimeType?.contains("subrip", ignoreCase = true) == true -> "SRT"
+                mimeType?.contains("webvtt", ignoreCase = true) == true -> "VTT"
+                else -> "Subtitle"
+            }
+            return "$name - $type"
+        }
+}
+
 @OptIn(UnstableApi::class)
 @Singleton
 class PlayerEngine(
@@ -298,7 +326,7 @@ class PlayerEngine(
     fun selectSubtitleTrack(trackIndex: Int) {
         _player?.let { player ->
             if (trackIndex < 0) {
-            trackSelector?.setParameters(
+                trackSelector?.setParameters(
                     trackSelector!!.buildUponParameters()
                         .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
                 )
@@ -312,20 +340,22 @@ class PlayerEngine(
             )
 
             val tracks = player.currentTracks
-            var subtitleGroupIdx = 0
+            var flatSubtitleIdx = 0
             for (group in tracks.groups) {
                 if (group.type == C.TRACK_TYPE_TEXT) {
-                    if (subtitleGroupIdx == trackIndex && group.length > 0) {
-                        trackSelector?.setParameters(
-                            trackSelector!!.buildUponParameters()
-                                .setOverrideForType(
-                                    TrackSelectionOverride(group.mediaTrackGroup, 0)
-                                )
-                        )
-                        _state.value = _state.value.copy(currentSubtitleTrack = trackIndex)
-                        break
+                    for (trackInGroup in 0 until group.length) {
+                        if (flatSubtitleIdx == trackIndex) {
+                            trackSelector?.setParameters(
+                                trackSelector!!.buildUponParameters()
+                                    .setOverrideForType(
+                                        TrackSelectionOverride(group.mediaTrackGroup, trackInGroup)
+                                    )
+                            )
+                            _state.value = _state.value.copy(currentSubtitleTrack = trackIndex)
+                            return
+                        }
+                        flatSubtitleIdx++
                     }
-                    subtitleGroupIdx++
                 }
             }
         }
@@ -359,6 +389,34 @@ class PlayerEngine(
                             )
                         )
                         audioIndex++
+                    }
+                }
+            }
+        }
+        return result
+    }
+
+    fun getSubtitleTrackInfoList(): List<SubtitleTrackInfo> {
+        val result = mutableListOf<SubtitleTrackInfo>()
+        _player?.let { player ->
+            var subtitleIndex = 0
+            for (group in player.currentTracks.groups) {
+                if (group.type == C.TRACK_TYPE_TEXT) {
+                    for (i in 0 until group.length) {
+                        val format = group.getTrackFormat(i)
+                        val mimeType = format.sampleMimeType
+                        result.add(
+                            SubtitleTrackInfo(
+                                index = subtitleIndex,
+                                language = format.language,
+                                label = format.label,
+                                mimeType = mimeType,
+                                isImageBased = mimeType?.contains("pgs", ignoreCase = true) == true ||
+                                    mimeType?.contains("vobsub", ignoreCase = true) == true,
+                                isSupported = group.isTrackSupported(i)
+                            )
+                        )
+                        subtitleIndex++
                     }
                 }
             }
